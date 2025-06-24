@@ -1,5 +1,36 @@
 # Gotify - Modern Music Streaming Platform
 
+<!--toc:start-->
+- [Gotify - Modern Music Streaming Platform](#gotify-modern-music-streaming-platform)
+  - [Features](#features)
+    - [Backend API](#backend-api)
+    - [Frontend Interface](#frontend-interface)
+  - [Tech Stack](#tech-stack)
+    - [Backend](#backend)
+    - [Frontend](#frontend)
+  - [API Endpoints](#api-endpoints)
+    - [Users](#users)
+    - [Songs](#songs)
+  - [Setup Instructions](#setup-instructions)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+  - [Usage Guide](#usage-guide)
+    - [Creating Users](#creating-users)
+    - [Adding Songs](#adding-songs)
+    - [Playing Music](#playing-music)
+    - [Searching](#searching)
+  - [Project Structure](#project-structure)
+  - [Development](#development)
+    - [Adding New Features](#adding-new-features)
+    - [Frontend Customization](#frontend-customization)
+    - [Database Changes](#database-changes)
+  - [Troubleshooting](#troubleshooting)
+    - [Common Issues](#common-issues)
+    - [API Testing](#api-testing)
+  - [Contributing](#contributing)
+  - [License](#license)
+<!--toc:end-->
+
 A beautiful, modern web frontend for the Gotify music streaming API built with Go, Gin, GORM, HTML, TailwindCSS, HTMX, and Alpine.js.
 
 ## Features
