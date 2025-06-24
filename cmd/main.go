@@ -1,7 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"github.com/yosp313/gotify/internal/api"
+)
 
 func main() {
-	fmt.Println("Hello, World!")
+	api.Run()
 }

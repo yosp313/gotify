@@ -1,0 +1,79 @@
+package song
+
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/yosp313/gotify/internal/utils"
+)
+
+type SongHandler struct {
+	service *SongService
+}
+
+func NewSongHandler(service *SongService) *SongHandler {
+	return &SongHandler{service: service}
+}
+
+func (h *SongHandler) Create(c *gin.Context) {
+	var song Song
+	if err := c.ShouldBindJSON(&song); err != nil {
+		utils.HandleErrorWithMessage(c, err, "Invalid request body", 400)
+	}
+	id, err := h.service.Create(&song)
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to create song", 500)
+	}
+
+	c.JSON(201, gin.H{"message": "Song created successfully", "id": id})
+}
+
+func (h *SongHandler) GetById(c *gin.Context) {
+	id := c.Param("id")
+	song, err := h.service.GetById(id)
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to retrieve song", 500)
+	}
+
+	c.JSON(200, song)
+}
+
+func (h *SongHandler) GetByTitle(c *gin.Context) {
+	title := c.Query("title")
+	if title == "" {
+		utils.HandleErrorWithMessage(c, nil, "Title query parameter is required", 400)
+		return
+	}
+
+	songs, err := h.service.GetByTitle(title)
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to retrieve songs by title", 500)
+		return
+	}
+
+	c.JSON(200, songs)
+}
+
+func (h *SongHandler) GetByArtistId(c *gin.Context) {
+	id := c.Param("artistId")
+	if id == "" {
+		utils.HandleErrorWithMessage(c, nil, "Artist ID is required", 400)
+		return
+	}
+
+	songs, err := h.service.GetByArtistId(id)
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to retrieve songs by artist ID", 500)
+		return
+	}
+
+	c.JSON(200, songs)
+}
+
+func (h *SongHandler) GetAll(c *gin.Context) {
+	songs, err := h.service.GetAll()
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to retrieve all songs", 500)
+		return
+	}
+
+	c.JSON(200, songs)
+}

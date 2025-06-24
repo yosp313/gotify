@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/yosp313/gotify/internal/features/song"
 	"github.com/yosp313/gotify/internal/features/user"
 	"github.com/yosp313/gotify/internal/utils"
 	"gorm.io/driver/sqlite"
@@ -12,6 +13,9 @@ func Run() {
 	db, err := gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{})
 	utils.HandleError(err, "Failed to connect to the database")
 
+	err = db.AutoMigrate(&user.User{}, &song.Song{})
+	utils.HandleError(err, "Failed to migrate database schema")
+
 	c := gin.Default()
 	api := c.Group("/api/v1")
 
@@ -21,6 +25,17 @@ func Run() {
 		userRepo := user.NewSqlUserRepository(db)
 		userService := user.NewUserService(userRepo)
 		userHandler := user.NewUserHandler(userService)
-		user.SetupUserRoutes(userRouter, userHandler)
+		user.SetupRoutes(userRouter, userHandler)
 	}
+
+	// Song Features
+	{
+		songRouter := api.Group("/songs")
+		songRepo := song.NewSqlSongRepository(db)
+		songService := song.NewSongService(songRepo)
+		songHandler := song.NewSongHandler(songService)
+		song.SetupRoutes(songRouter, songHandler)
+	}
+
+	c.Run(":8080")
 }
