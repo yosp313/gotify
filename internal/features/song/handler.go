@@ -1,6 +1,10 @@
 package song
 
 import (
+	"net/http"
+	"os"
+	"path/filepath"
+
 	"github.com/gin-gonic/gin"
 	"github.com/yosp313/gotify/internal/utils"
 )
@@ -76,4 +80,26 @@ func (h *SongHandler) GetAll(c *gin.Context) {
 	}
 
 	c.JSON(200, songs)
+}
+
+func (h *SongHandler) StreamSong(c *gin.Context) {
+	id := c.Param("id")
+
+	song, err := h.service.GetById(id)
+	utils.HandleErrorWithMessage(c, err, "Failed to retrieve song", 500)
+
+	safeFilename := filepath.Base(song.Filename)
+	filePath := filepath.Join("songs", safeFilename)
+
+	file, err := os.Open(filePath)
+	utils.HandleErrorWithMessage(c, err, "Couldn't open the song file", 500)
+	defer file.Close()
+
+	fi, err := file.Stat()
+	utils.HandleErrorWithMessage(c, err, "Couldn't get file info", 500)
+
+	c.Writer.Header().Set("Content-Type", "audio/mpeg")
+	c.Writer.Header().Set("Accept-Ranges", "bytes")
+
+	http.ServeContent(c.Writer, c.Request, safeFilename, fi.ModTime(), file)
 }
