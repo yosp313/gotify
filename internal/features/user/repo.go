@@ -1,0 +1,34 @@
+package user
+
+import "gorm.io/gorm"
+
+type SqlUserRepository struct {
+	db *gorm.DB
+}
+
+func NewSqlUserRepository(db *gorm.DB) *SqlUserRepository {
+	return &SqlUserRepository{db: db}
+}
+
+func (repo *SqlUserRepository) Create(user *User) (string, error) {
+	if err := repo.db.Create(user).Error; err != nil {
+		return "", err
+	}
+	return user.Id.String(), nil
+}
+
+func (repo *SqlUserRepository) GetById(id string) (User, error) {
+	var user User
+	if err := repo.db.First(&user, "id = ?", id).Error; err != nil {
+		return User{}, err
+	}
+	return user, nil
+}
+
+func (repo *SqlUserRepository) GetByEmail(email string) (User, error) {
+	var user User
+	if err := repo.db.First(&user, "email = ?", email).Error; err != nil {
+		return User{}, err
+	}
+	return user, nil
+}
