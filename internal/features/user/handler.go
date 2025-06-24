@@ -24,9 +24,13 @@ func (handler *UserHandler) HandleCreateUser(c *gin.Context) {
 	var req CreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.HandleErrorWithMessage(c, err, "Invalid request body", 400)
+		return
 	}
 	err := handler.service.CreateUser(req.FullName, req.Email, req.Password)
-	utils.HandleErrorWithMessage(c, err, "Failed to create user", 500)
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to create user", 500)
+		return
+	}
 
 	c.JSON(201, gin.H{"message": "User created successfully"})
 }

@@ -21,10 +21,12 @@ func (h *SongHandler) Create(c *gin.Context) {
 	var song Song
 	if err := c.ShouldBindJSON(&song); err != nil {
 		utils.HandleErrorWithMessage(c, err, "Invalid request body", 400)
+		return
 	}
 	id, err := h.service.Create(&song)
 	if err != nil {
 		utils.HandleErrorWithMessage(c, err, "Failed to create song", 500)
+		return
 	}
 
 	c.JSON(201, gin.H{"message": "Song created successfully", "id": id})
@@ -35,6 +37,7 @@ func (h *SongHandler) GetById(c *gin.Context) {
 	song, err := h.service.GetById(id)
 	if err != nil {
 		utils.HandleErrorWithMessage(c, err, "Failed to retrieve song", 500)
+		return
 	}
 
 	c.JSON(200, song)
@@ -86,17 +89,26 @@ func (h *SongHandler) StreamSong(c *gin.Context) {
 	id := c.Param("id")
 
 	song, err := h.service.GetById(id)
-	utils.HandleErrorWithMessage(c, err, "Failed to retrieve song", 500)
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to retrieve song", 500)
+		return
+	}
 
 	safeFilename := filepath.Base(song.Filename)
 	filePath := filepath.Join("songs", safeFilename)
 
 	file, err := os.Open(filePath)
-	utils.HandleErrorWithMessage(c, err, "Couldn't open the song file", 500)
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to open song file", 500)
+		return
+	}
 	defer file.Close()
 
 	fi, err := file.Stat()
-	utils.HandleErrorWithMessage(c, err, "Couldn't get file info", 500)
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to get file info", 500)
+		return
+	}
 
 	c.Writer.Header().Set("Content-Type", "audio/mpeg")
 	c.Writer.Header().Set("Accept-Ranges", "bytes")
