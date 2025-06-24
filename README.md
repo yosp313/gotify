@@ -1,5 +1,6 @@
 # Gotify - Modern Music Streaming Platform
 
+A beautiful, modern web frontend for the Gotify music streaming API built with Go, Gin, GORM, HTML, TailwindCSS, HTMX, and Alpine.js.
 <!--toc:start-->
 - [Gotify - Modern Music Streaming Platform](#gotify-modern-music-streaming-platform)
   - [Features](#features)
@@ -30,8 +31,6 @@
   - [Contributing](#contributing)
   - [License](#license)
 <!--toc:end-->
-
-A beautiful, modern web frontend for the Gotify music streaming API built with Go, Gin, GORM, HTML, TailwindCSS, HTMX, and Alpine.js.
 
 ## Features
 
