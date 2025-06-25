@@ -10,11 +10,11 @@ func NewSqlUserRepository(db *gorm.DB) *SqlUserRepository {
 	return &SqlUserRepository{db: db}
 }
 
-func (repo *SqlUserRepository) Create(user *User) (string, error) {
+func (repo *SqlUserRepository) Create(user *User) (*User, error) {
 	if err := repo.db.Create(user).Error; err != nil {
-		return "", err
+		return nil, err
 	}
-	return user.Id.String(), nil
+	return user, nil
 }
 
 func (repo *SqlUserRepository) GetById(id string) (User, error) {

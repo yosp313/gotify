@@ -19,20 +19,46 @@ type CreateRequest struct {
 	Password string `json:"password"`
 }
 
-func (handler *UserHandler) HandleCreateUser(c *gin.Context) {
-	// serialize the request body into CreateRequest
-	var req CreateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+func (handler *UserHandler) HandleSignUp(c *gin.Context) {
+	var request CreateRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
 		utils.HandleErrorWithMessage(c, err, "Invalid request body", 400)
 		return
 	}
-	err := handler.service.CreateUser(req.FullName, req.Email, req.Password)
+
+	if request.FullName == "" || request.Email == "" || request.Password == "" {
+		utils.HandleErrorWithMessage(c, nil, "Full name, email, and password are required", 400)
+		return
+	}
+
+	token, err := handler.service.SignUp(request.FullName, request.Email, request.Password)
 	if err != nil {
 		utils.HandleErrorWithMessage(c, err, "Failed to create user", 500)
 		return
 	}
 
-	c.JSON(201, gin.H{"message": "User created successfully"})
+	c.JSON(201, gin.H{"token": token})
+}
+
+func (handler *UserHandler) HandleLogin(c *gin.Context) {
+	var request CreateRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		utils.HandleErrorWithMessage(c, err, "Invalid request body", 400)
+		return
+	}
+
+	if request.Email == "" || request.Password == "" {
+		utils.HandleErrorWithMessage(c, nil, "Email and password are required", 400)
+		return
+	}
+
+	token, err := handler.service.Authenticate(request.Email, request.Password)
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to login", 401)
+		return
+	}
+
+	c.JSON(200, gin.H{"token": token})
 }
 
 func (handler *UserHandler) HandleGetUserById(c *gin.Context) {

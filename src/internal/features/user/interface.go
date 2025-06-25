@@ -1,7 +1,7 @@
 package user
 
 type UserRepository interface {
-	Create(user *User) (string, error)
+	Create(user *User) (*User, error)
 	GetById(id string) (User, error)
 	GetByEmail(email string) (User, error)
 }

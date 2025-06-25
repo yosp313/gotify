@@ -1,6 +1,9 @@
 package api
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/yosp313/gotify/src/internal/pkg/auth"
+)
 
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -14,6 +17,34 @@ func CORSMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		c.Next()
+	}
+}
+
+func AuthMiddleware(authService *auth.JwtAuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Here you would typically extract the token from the Authorization header
+		// and validate it using your authentication service.
+		// For simplicity, we will just check if a token is present.
+
+		header := c.GetHeader("Authorization")
+		if header == "" {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
+			c.Abort()
+			return
+		}
+
+		token := header[len("Bearer "):] // Assuming the token is prefixed with "Bearer "
+
+		// Validate the token (this is a placeholder, replace with actual validation logic)
+		valid, err := authService.ValidateToken(token)
+		if err != nil || !valid {
+			c.JSON(401, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
+
+		// If token is valid, proceed to the next handler
 		c.Next()
 	}
 }

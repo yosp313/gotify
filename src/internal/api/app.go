@@ -5,6 +5,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/yosp313/gotify/src/internal/features/song"
 	"github.com/yosp313/gotify/src/internal/features/user"
+	"github.com/yosp313/gotify/src/internal/pkg/auth"
 	"github.com/yosp313/gotify/src/internal/utils"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -31,13 +32,17 @@ func Run() {
 	// API Versioning
 	api := c.Group("/api/v1")
 
+	authService := auth.NewJwtAuthService(utils.GetEnv("JWT_SECRET", "secret-key"))
+
 	// Users features
 	{
 		userRouter := api.Group("/users")
 		userRepo := user.NewSqlUserRepository(db)
 		userService := user.NewUserService(userRepo)
 		userHandler := user.NewUserHandler(userService)
-		user.SetupRoutes(userRouter, userHandler)
+
+		user.SetupRoutes(userRouter, userHandler, AuthMiddleware(authService))
+		user.SetupAuthRoutes(api.Group("/auth"), userHandler)
 	}
 
 	// Song Features
@@ -46,7 +51,8 @@ func Run() {
 		songRepo := song.NewSqlSongRepository(db)
 		songService := song.NewSongService(songRepo)
 		songHandler := song.NewSongHandler(songService)
-		song.SetupRoutes(songRouter, songHandler)
+
+		song.SetupRoutes(songRouter, songHandler, AuthMiddleware(authService))
 	}
 
 	c.Run(utils.GetEnv("PORT", ":8080"))

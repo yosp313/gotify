@@ -2,7 +2,9 @@ package song
 
 import "github.com/gin-gonic/gin"
 
-func SetupRoutes(c *gin.RouterGroup, h *SongHandler) {
+func SetupRoutes(c *gin.RouterGroup, h *SongHandler, authMiddleware gin.HandlerFunc) {
+	c.Use(authMiddleware)
+
 	c.POST("", h.Create)
 	c.GET("", h.GetAll)
 	c.GET("/:id", h.GetById)

@@ -2,8 +2,14 @@ package user
 
 import "github.com/gin-gonic/gin"
 
-func SetupRoutes(c *gin.RouterGroup, userHandler *UserHandler) {
-	c.POST("/", userHandler.HandleCreateUser)
+func SetupRoutes(c *gin.RouterGroup, userHandler *UserHandler, authMiddleware gin.HandlerFunc) {
+	c.Use(authMiddleware)
+
 	c.GET("/:id", userHandler.HandleGetUserById)
 	c.GET("/email/:email", userHandler.HandleGetUserByEmail)
+}
+
+func SetupAuthRoutes(c *gin.RouterGroup, userHandler *UserHandler) {
+	c.POST("/auth/signup", userHandler.HandleSignUp)
+	c.POST("/auth/login", userHandler.HandleLogin)
 }

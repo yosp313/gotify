@@ -24,6 +24,12 @@ func hashPassword(password string) (string, error) {
 	return string(hashedPassword), nil // Placeholder, replace with actual hashing
 }
 
+func (u *User) CheckPassword(password string) bool {
+	// Implement password checking logic here
+	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+	return err == nil
+}
+
 func NewUser(fullName, email, password string) (*User, error) {
 	hashedPassword, err := hashPassword(password)
 	if err != nil {
