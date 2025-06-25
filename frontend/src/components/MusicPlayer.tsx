@@ -30,7 +30,76 @@ export function MusicPlayer({
   const [isRepeat, setIsRepeat] = useState(false)
   const [isShuffle, setIsShuffle] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
+  const [isVisualizerActive, setIsVisualizerActive] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null)
+  const animationRef = useRef<number | null>(null)
+
+  // Initialize audio context and analyser for visualizer
+  const initializeAudioContext = () => {
+    if (!audioRef.current || audioContextRef.current) return
+
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const analyser = audioContext.createAnalyser()
+      const source = audioContext.createMediaElementSource(audioRef.current)
+      
+      analyser.fftSize = 128
+      // frequencyBinCount is read-only, it's automatically set to fftSize / 2
+      
+      source.connect(analyser)
+      analyser.connect(audioContext.destination)
+      
+      audioContextRef.current = audioContext
+      analyserRef.current = analyser
+      sourceRef.current = source
+      setIsVisualizerActive(true)
+    } catch (error) {
+      console.error('Error initializing audio context:', error)
+    }
+  }
+
+  // Audio visualizer animation
+  const drawVisualizer = () => {
+    if (!analyserRef.current || !canvasRef.current) return
+
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const bufferLength = analyserRef.current.frequencyBinCount
+    const dataArray = new Uint8Array(bufferLength)
+    analyserRef.current.getByteFrequencyData(dataArray)
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    // Draw bars
+    const barWidth = canvas.width / bufferLength
+    let x = 0
+
+    for (let i = 0; i < bufferLength; i++) {
+      const barHeight = (dataArray[i] / 255) * canvas.height * 0.8
+      
+      // Create gradient for each bar
+      const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight)
+      gradient.addColorStop(0, '#4F46E5')
+      gradient.addColorStop(0.5, '#7C3AED')
+      gradient.addColorStop(1, '#EC4899')
+      
+      ctx.fillStyle = gradient
+      ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight)
+      
+      x += barWidth
+    }
+
+    if (isPlaying) {
+      animationRef.current = requestAnimationFrame(drawVisualizer)
+    }
+  }
 
   useEffect(() => {
     const audio = audioRef.current
@@ -50,18 +119,46 @@ export function MusicPlayer({
       }
     }
 
+    const handlePlay = () => {
+      initializeAudioContext()
+      drawVisualizer()
+    }
+
+    const handlePause = () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+        animationRef.current = null
+      }
+    }
+
     audio.addEventListener('timeupdate', updateTime)
     audio.addEventListener('loadedmetadata', updateDuration)
     audio.addEventListener('ended', handleEnded)
     audio.addEventListener('error', handleError)
+    audio.addEventListener('play', handlePlay)
+    audio.addEventListener('pause', handlePause)
 
     return () => {
       audio.removeEventListener('timeupdate', updateTime)
       audio.removeEventListener('loadedmetadata', updateDuration)
       audio.removeEventListener('ended', handleEnded)
       audio.removeEventListener('error', handleError)
+      audio.removeEventListener('play', handlePlay)
+      audio.removeEventListener('pause', handlePause)
     }
-  }, [streamUrl, onNext, song, onPause])
+  }, [streamUrl, onNext, song, onPause, isPlaying])
+
+  // Cleanup audio context on unmount
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close()
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (audioRef.current) {
@@ -125,7 +222,20 @@ export function MusicPlayer({
           ref={audioRef}
           src={streamUrl}
           autoPlay={isPlaying}
+          crossOrigin="anonymous"
         />
+      )}
+      
+      {/* Audio Visualizer */}
+      {isVisualizerActive && (
+        <div className="h-16 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-100 overflow-hidden">
+          <canvas
+            ref={canvasRef}
+            width={window.innerWidth}
+            height={64}
+            className="w-full h-full opacity-80"
+          />
+        </div>
       )}
       
       <div className="max-w-7xl mx-auto px-4 py-4">
@@ -158,9 +268,9 @@ export function MusicPlayer({
             </button>
           </div>
 
-          {/* Controls */}
-          <div className="flex flex-col items-center space-y-2 flex-1 max-w-md">
-            <div className="flex items-center space-x-4">
+          {/* Enhanced Controls */}
+          <div className="flex flex-col items-center space-y-3 flex-1 max-w-md">
+            <div className="flex items-center space-x-6">
               <button
                 onClick={() => setIsShuffle(!isShuffle)}
                 className={`p-2 rounded-full transition-all duration-200 ${
@@ -175,28 +285,32 @@ export function MusicPlayer({
               <button
                 onClick={onPrevious}
                 disabled={!onPrevious}
-                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <SkipBack className="h-5 w-5" />
+                <SkipBack className="h-6 w-6" />
               </button>
 
+              {/* Enhanced Play/Pause Button */}
               <button
                 onClick={togglePlay}
-                className="p-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full hover:from-indigo-700 hover:to-purple-700 shadow-lg shadow-indigo-500/25 transition-all duration-200 transform hover:scale-105"
+                className="group relative p-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full hover:from-indigo-700 hover:to-purple-700 shadow-xl shadow-indigo-500/30 transition-all duration-200 transform hover:scale-110 active:scale-95"
               >
-                {isPlaying ? (
-                  <Pause className="h-6 w-6" />
-                ) : (
-                  <Play className="h-6 w-6 ml-0.5" />
-                )}
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full blur-lg opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                <div className="relative">
+                  {isPlaying ? (
+                    <Pause className="h-7 w-7" />
+                  ) : (
+                    <Play className="h-7 w-7 ml-1" />
+                  )}
+                </div>
               </button>
 
               <button
                 onClick={onNext}
                 disabled={!onNext}
-                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <SkipForward className="h-5 w-5" />
+                <SkipForward className="h-6 w-6" />
               </button>
 
               <button
@@ -211,50 +325,73 @@ export function MusicPlayer({
               </button>
             </div>
 
-            {/* Progress Bar */}
-            <div className="w-full flex items-center space-x-3 text-sm text-gray-500">
-              <span className="text-xs">{formatTime(currentTime)}</span>
-              <div className="flex-1 relative">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={duration ? (currentTime / duration) * 100 : 0}
-                  onChange={handleSeek}
-                  className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer slider"
-                  style={{
-                    background: `linear-gradient(to right, #4F46E5 0%, #4F46E5 ${duration ? (currentTime / duration) * 100 : 0}%, #E5E7EB ${duration ? (currentTime / duration) * 100 : 0}%, #E5E7EB 100%)`
-                  }}
-                />
+            {/* Enhanced Progress Bar with Timeline */}
+            <div className="w-full flex items-center space-x-4">
+              <span className="text-sm font-medium text-gray-700 min-w-[3rem]">
+                {formatTime(currentTime)}
+              </span>
+              <div className="flex-1 relative group">
+                <div className="relative">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={duration ? (currentTime / duration) * 100 : 0}
+                    onChange={handleSeek}
+                    className="w-full h-3 bg-gray-200 rounded-full appearance-none cursor-pointer slider shadow-inner"
+                    style={{
+                      background: `linear-gradient(to right, #4F46E5 0%, #4F46E5 ${duration ? (currentTime / duration) * 100 : 0}%, #E5E7EB ${duration ? (currentTime / duration) * 100 : 0}%, #E5E7EB 100%)`
+                    }}
+                  />
+                  {/* Progress Indicator */}
+                  <div 
+                    className="absolute top-1/2 w-4 h-4 bg-white border-2 border-indigo-600 rounded-full shadow-lg pointer-events-none transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{
+                      left: `calc(${duration ? (currentTime / duration) * 100 : 0}% - 0.5rem)`
+                    }}
+                  ></div>
+                  {/* Hover effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                </div>
               </div>
-              <span className="text-xs">{formatTime(duration)}</span>
+              <span className="text-sm font-medium text-gray-700 min-w-[3rem]">
+                {formatTime(duration)}
+              </span>
             </div>
           </div>
 
           {/* Volume & Actions */}
           <div className="flex items-center space-x-3 flex-1 justify-end">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <button
                 onClick={toggleMute}
                 className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all"
               >
                 {isMuted ? (
-                  <VolumeX className="h-4 w-4" />
+                  <VolumeX className="h-5 w-5" />
                 ) : (
-                  <Volume2 className="h-4 w-4" />
+                  <Volume2 className="h-5 w-5" />
                 )}
               </button>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={isMuted ? 0 : volume * 100}
-                onChange={handleVolumeChange}
-                className="w-20 h-1 bg-gray-200 rounded-full appearance-none cursor-pointer slider"
-                style={{
-                  background: `linear-gradient(to right, #4F46E5 0%, #4F46E5 ${isMuted ? 0 : volume * 100}%, #E5E7EB ${isMuted ? 0 : volume * 100}%, #E5E7EB 100%)`
-                }}
-              />
+              <div className="relative group">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={isMuted ? 0 : volume * 100}
+                  onChange={handleVolumeChange}
+                  className="w-24 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer slider"
+                  style={{
+                    background: `linear-gradient(to right, #4F46E5 0%, #4F46E5 ${isMuted ? 0 : volume * 100}%, #E5E7EB ${isMuted ? 0 : volume * 100}%, #E5E7EB 100%)`
+                  }}
+                />
+                <div 
+                  className="absolute top-1/2 w-3 h-3 bg-white border-2 border-indigo-600 rounded-full shadow-md pointer-events-none transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{
+                    left: `calc(${isMuted ? 0 : volume * 100}% - 0.375rem)`
+                  }}
+                ></div>
+              </div>
             </div>
 
             <button className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all">
@@ -274,22 +411,63 @@ export function MusicPlayer({
       <style>{`
         .slider::-webkit-slider-thumb {
           appearance: none;
-          width: 16px;
-          height: 16px;
-          background: #4F46E5;
+          width: 20px;
+          height: 20px;
+          background: linear-gradient(135deg, #4F46E5, #7C3AED);
           border-radius: 50%;
           cursor: pointer;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
+          transition: all 0.2s ease;
+        }
+        
+        .slider::-webkit-slider-thumb:hover {
+          width: 22px;
+          height: 22px;
+          box-shadow: 0 6px 12px rgba(79, 70, 229, 0.4);
         }
         
         .slider::-moz-range-thumb {
-          width: 16px;
-          height: 16px;
-          background: #4F46E5;
+          width: 20px;
+          height: 20px;
+          background: linear-gradient(135deg, #4F46E5, #7C3AED);
           border-radius: 50%;
           cursor: pointer;
           border: none;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
+          transition: all 0.2s ease;
+        }
+        
+        .slider::-moz-range-thumb:hover {
+          width: 22px;
+          height: 22px;
+          box-shadow: 0 6px 12px rgba(79, 70, 229, 0.4);
+        }
+
+        @keyframes slide-up {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+
+        @media (max-width: 768px) {
+          .slider::-webkit-slider-thumb {
+            width: 18px;
+            height: 18px;
+          }
+          
+          .slider::-webkit-slider-thumb:hover {
+            width: 20px;
+            height: 20px;
+          }
         }
       `}</style>
     </div>

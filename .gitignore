@@ -1,4 +1,14 @@
 *.db
 *.fuse*
 .env
-songs/*.mp3
+
+# All audio formats
+*.aac
+*.aiff
+*.flac
+*.m4a
+*.mp3
+*.ogg
+*.opus
+*.wav
+

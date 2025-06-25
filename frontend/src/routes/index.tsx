@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import { Music, Users, Play, Search, TrendingUp, Clock, Heart, Headphones, Zap, Star, Volume2 } from 'lucide-react'
+import { Music, Users, Play, Search, TrendingUp, Clock, Heart, Headphones, Zap, Star } from 'lucide-react'
 import { songApi } from '../services/api'
+import { AdvancedMusicPlayer } from '../components/AdvancedMusicPlayer'
 import type { Song } from '../services/api'
 
 export const Route = createFileRoute('/')({
@@ -14,8 +15,9 @@ function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Song[]>([])
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null)
   const [playingSongId, setPlayingSongId] = useState<string | null>(null)
+  const [isPlayerMinimized, setIsPlayerMinimized] = useState(false)
+  const [currentSong, setCurrentSong] = useState<Song | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -49,30 +51,55 @@ function Dashboard() {
   }
 
   const playAudio = (songId: string) => {
-    if (currentAudio) {
-      currentAudio.pause()
-    }
+    const song = songs.find(s => s.id === songId)
+    if (!song) return
 
-    const audio = new Audio(songApi.getStreamUrl(songId))
-    audio.play().catch(error => {
-      console.error('Error playing audio:', error)
-    })
-
-    audio.onended = () => {
-      setPlayingSongId(null)
-      setCurrentAudio(null)
-    }
-
-    setCurrentAudio(audio)
+    setCurrentSong(song)
     setPlayingSongId(songId)
   }
 
   const stopAudio = () => {
-    if (currentAudio) {
-      currentAudio.pause()
-      setCurrentAudio(null)
+    setPlayingSongId(null)
+    setCurrentSong(null)
+  }
+
+  const handlePlayPause = () => {
+    if (playingSongId) {
       setPlayingSongId(null)
+    } else if (currentSong) {
+      setPlayingSongId(currentSong.id)
     }
+  }
+
+  const handleNext = () => {
+    if (!currentSong) return
+    const currentIndex = songs.findIndex(s => s.id === currentSong.id)
+    const nextIndex = (currentIndex + 1) % songs.length
+    const nextSong = songs[nextIndex]
+    if (nextSong) {
+      setCurrentSong(nextSong)
+      setPlayingSongId(nextSong.id)
+    }
+  }
+
+  const handlePrevious = () => {
+    if (!currentSong) return
+    const currentIndex = songs.findIndex(s => s.id === currentSong.id)
+    const prevIndex = (currentIndex - 1 + songs.length) % songs.length
+    const prevSong = songs[prevIndex]
+    if (prevSong) {
+      setCurrentSong(prevSong)
+      setPlayingSongId(prevSong.id)
+    }
+  }
+
+  const handleClose = () => {
+    setCurrentSong(null)
+    setPlayingSongId(null)
+  }
+
+  const getStreamUrl = (songId: string) => {
+    return songApi.getStreamUrl(songId)
   }
 
   if (loading) {
@@ -352,36 +379,20 @@ function Dashboard() {
         )}
       </div>
 
-      {/* Currently Playing */}
-      {playingSongId && (
-        <div className="fixed bottom-6 right-6 bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 p-4 min-w-80 animate-scale-in music-player-shadow">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Music className="h-6 w-6 text-white" />
-              </div>
-              <div className="absolute -inset-1 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl blur opacity-25 animate-pulse"></div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1">
-                <Volume2 className="h-4 w-4 text-indigo-600" />
-                <p className="text-sm font-medium text-gray-900">Now Playing</p>
-              </div>
-              <p className="text-sm text-gray-600 truncate">
-                {songs.find(s => s.id === playingSongId)?.title}
-              </p>
-            </div>
-            <button
-              onClick={stopAudio}
-              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-            >
-              <div className="h-4 w-4 bg-current rounded-sm"></div>
-            </button>
-          </div>
-          <div className="mt-3 w-full bg-gray-200 rounded-full h-1">
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-1 rounded-full w-1/3 animate-pulse"></div>
-          </div>
-        </div>
+      {/* Advanced Music Player */}
+      {currentSong && (
+        <AdvancedMusicPlayer
+          song={currentSong}
+          isPlaying={!!playingSongId}
+          onPlay={handlePlayPause}
+          onPause={handlePlayPause}
+          onClose={handleClose}
+          onNext={handleNext}
+          onPrevious={handlePrevious}
+          streamUrl={getStreamUrl(currentSong.id)}
+          isMinimized={isPlayerMinimized}
+          onToggleMinimize={() => setIsPlayerMinimized(!isPlayerMinimized)}
+        />
       )}
     </div>
   )

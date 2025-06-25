@@ -120,6 +120,9 @@ func (h *SongHandler) StreamSong(c *gin.Context) {
 
 	c.Writer.Header().Set("Content-Type", "audio/mpeg")
 	c.Writer.Header().Set("Accept-Ranges", "bytes")
+	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+	c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+	c.Writer.Header().Set("Access-Control-Allow-Headers", "Range")
 
 	http.ServeContent(c.Writer, c.Request, safeFilename, fi.ModTime(), file)
 }
