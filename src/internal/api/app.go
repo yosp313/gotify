@@ -38,7 +38,7 @@ func Run() {
 	{
 		userRouter := api.Group("/users")
 		userRepo := user.NewSqlUserRepository(db)
-		userService := user.NewUserService(userRepo)
+		userService := user.NewUserService(userRepo, authService)
 		userHandler := user.NewUserHandler(userService)
 
 		user.SetupRoutes(userRouter, userHandler, AuthMiddleware(authService))
@@ -50,7 +50,7 @@ func Run() {
 		songRouter := api.Group("/songs")
 		songRepo := song.NewSqlSongRepository(db)
 		songService := song.NewSongService(songRepo)
-		songHandler := song.NewSongHandler(songService)
+		songHandler := song.NewSongHandler(songService, authService)
 
 		song.SetupRoutes(songRouter, songHandler, AuthMiddleware(authService))
 	}

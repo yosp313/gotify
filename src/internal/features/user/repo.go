@@ -27,7 +27,7 @@ func (repo *SqlUserRepository) GetById(id string) (User, error) {
 
 func (repo *SqlUserRepository) GetByEmail(email string) (User, error) {
 	var user User
-	if err := repo.db.First(&user, "email = ?", email).Error; err != nil {
+	if err := repo.db.Preload("Songs").First(&user, "email = ?", email).Error; err != nil {
 		return User{}, err
 	}
 	return user, nil

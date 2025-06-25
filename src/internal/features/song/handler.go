@@ -1,26 +1,26 @@
 package song
 
 import (
-	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
+	"github.com/yosp313/gotify/src/internal/pkg/auth"
 	"github.com/yosp313/gotify/src/internal/utils"
 )
 
 type SongHandler struct {
-	service *SongService
+	service     *SongService
+	authService *auth.JwtAuthService
 }
 
 type SongCreateRequest struct {
 	Title    string `json:"title" binding:"required"`
-	ArtistId string `json:"artist_id" binding:"required"`
 	Filename string `json:"filename" binding:"required"`
 }
 
-func NewSongHandler(service *SongService) *SongHandler {
-	return &SongHandler{service: service}
+func NewSongHandler(service *SongService, authService *auth.JwtAuthService) *SongHandler {
+	return &SongHandler{service: service, authService: authService}
 }
 
 func (h *SongHandler) Create(c *gin.Context) {
@@ -30,7 +30,17 @@ func (h *SongHandler) Create(c *gin.Context) {
 		return
 	}
 
-	song := NewSong(songReq.Title, songReq.ArtistId, songReq.Filename)
+	authHeader := c.GetHeader("Authorization")
+
+	token := authHeader[len("Bearer "):]
+
+	userDetails, err := h.authService.ParseToken(token)
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Unauthorized", 401)
+		return
+	}
+
+	song := NewSong(songReq.Title, userDetails.UserId, songReq.Filename)
 	id, err := h.service.Create(song)
 	if err != nil {
 		utils.HandleErrorWithMessage(c, err, "Failed to create song", 500)
@@ -94,35 +104,29 @@ func (h *SongHandler) GetAll(c *gin.Context) {
 }
 
 func (h *SongHandler) StreamSong(c *gin.Context) {
-	id := c.Param("id")
+	songID := c.Param("id")
 
-	song, err := h.service.GetById(id)
+	// Get song from database
+	song, err := h.service.GetById(songID)
 	if err != nil {
-		utils.HandleErrorWithMessage(c, err, "Failed to retrieve song", 500)
+		c.JSON(404, gin.H{"error": "Song not found"})
 		return
 	}
 
-	safeFilename := filepath.Base(song.Filename)
-	filePath := filepath.Join("songs", safeFilename)
+	// Construct file path
+	filePath := filepath.Join("songs", song.Filename)
 
-	file, err := os.Open(filePath)
-	if err != nil {
-		utils.HandleErrorWithMessage(c, err, "Failed to open song file", 500)
-		return
-	}
-	defer file.Close()
-
-	fi, err := file.Stat()
-	if err != nil {
-		utils.HandleErrorWithMessage(c, err, "Failed to get file info", 500)
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		c.JSON(404, gin.H{"error": "Audio file not found on disk"})
 		return
 	}
 
-	c.Writer.Header().Set("Content-Type", "audio/mpeg")
-	c.Writer.Header().Set("Accept-Ranges", "bytes")
-	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-	c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
-	c.Writer.Header().Set("Access-Control-Allow-Headers", "Range")
+	// Set appropriate headers
+	c.Header("Content-Type", "audio/mpeg")
+	c.Header("Accept-Ranges", "bytes")
+	c.Header("Cache-Control", "public, max-age=3600")
 
-	http.ServeContent(c.Writer, c.Request, safeFilename, fi.ModTime(), file)
+	// Stream the file
+	c.File(filePath)
 }

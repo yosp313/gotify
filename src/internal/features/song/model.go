@@ -5,20 +5,35 @@ import (
 	"os"
 
 	"github.com/google/uuid"
+	"github.com/yosp313/gotify/src/internal/utils"
 )
 
 type Song struct {
 	Id       uuid.UUID `json:"id" db:"id" gorm:"primaryKey"`
 	Title    string    `json:"title" db:"title" gorm:"not null"`
-	ArtistId string    `json:"artist_id" db:"artist_id" gorm:"not null;foreignKey"`
+	ArtistId uuid.UUID `json:"artist_id" db:"artist_id" gorm:"not null;foreignKey"`
 	Filename string    `json:"-" db:"file_name" gorm:"not null"`
+
+	// Relationships
+	Artist User `json:"artist" gorm:"foreignKey:ArtistId;references:Id;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+type User struct {
+	Id       uuid.UUID
+	FullName string
+	Email    string
+	Password string
 }
 
 func NewSong(title string, artistId string, filename string) *Song {
+	artistUUID, err := uuid.Parse(artistId)
+	if err != nil {
+		utils.HandleError(err, "Invalid artist ID format")
+	}
+
 	return &Song{
 		Id:       uuid.New(),
 		Title:    title,
-		ArtistId: artistId,
+		ArtistId: artistUUID,
 		Filename: filename,
 	}
 }

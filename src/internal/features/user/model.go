@@ -12,6 +12,16 @@ type User struct {
 	FullName string    `json:"full_name" db:"full_name" gorm:"not null"`
 	Email    string    `json:"email" db:"email" gorm:"not null;unique;index"`
 	Password string    `json:"password" db:"password" gorm:"not null"`
+
+	// Relationships
+	Songs []Song `json:"songs,omitempty" gorm:"foreignKey:ArtistId;references:Id;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type Song struct {
+	Id       uuid.UUID
+	Title    string
+	ArtistId string
+	Filename string
 }
 
 func hashPassword(password string) (string, error) {

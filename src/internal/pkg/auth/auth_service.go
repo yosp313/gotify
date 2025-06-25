@@ -19,7 +19,7 @@ type JwtClaims struct {
 
 func NewJwtAuthService(secretKey string) *JwtAuthService {
 	if secretKey == "" {
-		secretKey = "your-secret-key"
+		panic("JWT secret key must not be empty")
 	}
 
 	// turn into byte slice
@@ -60,4 +60,24 @@ func (s *JwtAuthService) ValidateToken(tokenString string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (s *JwtAuthService) ParseToken(tokenString string) (*JwtClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &JwtClaims{}, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return s.secretKey, nil
+	})
+
+	if err != nil || !token.Valid {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*JwtClaims)
+	if !ok {
+		return nil, jwt.ErrTokenMalformed
+	}
+
+	return claims, nil
 }

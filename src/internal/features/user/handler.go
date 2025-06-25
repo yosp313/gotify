@@ -13,14 +13,19 @@ func NewUserHandler(service *UserService) *UserHandler {
 	return &UserHandler{service: service}
 }
 
-type CreateRequest struct {
+type SignUpRequest struct {
 	FullName string `json:"full_name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 func (handler *UserHandler) HandleSignUp(c *gin.Context) {
-	var request CreateRequest
+	var request SignUpRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		utils.HandleErrorWithMessage(c, err, "Invalid request body", 400)
 		return
@@ -41,7 +46,7 @@ func (handler *UserHandler) HandleSignUp(c *gin.Context) {
 }
 
 func (handler *UserHandler) HandleLogin(c *gin.Context) {
-	var request CreateRequest
+	var request LoginRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		utils.HandleErrorWithMessage(c, err, "Invalid request body", 400)
 		return

@@ -8,11 +8,11 @@ import (
 
 type UserService struct {
 	repo UserRepository
-	auth auth.JwtAuthService
+	auth *auth.JwtAuthService
 }
 
-func NewUserService(repo UserRepository) *UserService {
-	return &UserService{repo: repo}
+func NewUserService(repo UserRepository, authService *auth.JwtAuthService) *UserService {
+	return &UserService{repo: repo, auth: authService}
 }
 
 func (s *UserService) SignUp(fullName, email, password string) (string, error) {

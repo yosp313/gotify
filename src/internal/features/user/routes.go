@@ -10,6 +10,6 @@ func SetupRoutes(c *gin.RouterGroup, userHandler *UserHandler, authMiddleware gi
 }
 
 func SetupAuthRoutes(c *gin.RouterGroup, userHandler *UserHandler) {
-	c.POST("/auth/signup", userHandler.HandleSignUp)
-	c.POST("/auth/login", userHandler.HandleLogin)
+	c.POST("/signup", userHandler.HandleSignUp)
+	c.POST("/login", userHandler.HandleLogin)
 }
