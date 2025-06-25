@@ -388,7 +388,6 @@ function Dashboard() {
           onClose={handleClose}
           onNext={handleNext}
           onPrevious={handlePrevious}
-          streamUrl={getStreamUrl(currentSong.id)}
           isMinimized={isPlayerMinimized}
           onToggleMinimize={() => setIsPlayerMinimized(!isPlayerMinimized)}
         />

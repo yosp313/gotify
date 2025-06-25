@@ -61,7 +61,7 @@ function SongsPage() {
 
     if (selectedArtist) {
       filtered = filtered.filter(song => 
-        song.artist?.full_name?.toLowerCase().includes(selectedArtist.toLowerCase()) ||
+        song.artist?.FullName?.toLowerCase().includes(selectedArtist.toLowerCase()) ||
         song.artist_id === selectedArtist
       )
     }
@@ -133,8 +133,8 @@ function SongsPage() {
   const uniqueArtists = Array.from(
     new Set(
       songs
-        .filter(song => song.artist?.full_name) // Only include songs with artist data
-        .map(song => song.artist!.full_name)
+        .filter(song => song.artist?.FullName) // Only include songs with artist data
+        .map(song => song.artist!.FullName)
     )
   )
 

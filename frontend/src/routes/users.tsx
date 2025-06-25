@@ -52,9 +52,9 @@ function UsersPage() {
             console.warn('User not found for artist ID:', artistId)
             const artistSongs = validSongs.filter(song => song.artist_id === artistId)
             usersWithSongs.push({
-              id: artistId,
-              full_name: `Unknown Artist (${artistId.slice(0, 8)})`,
-              email: `unknown-${artistId.slice(0, 8)}@example.com`,
+              Id: artistId,
+              FullName: `Unknown Artist (${artistId.slice(0, 8)})`,
+              Email: `unknown-${artistId.slice(0, 8)}@example.com`,
               songCount: artistSongs.length,
               songs: artistSongs
             })
@@ -75,8 +75,8 @@ function UsersPage() {
 
   useEffect(() => {
     const filtered = users.filter(user =>
-      user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+      user.FullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.Email.toLowerCase().includes(searchQuery.toLowerCase())
     )
     setFilteredUsers(filtered)
   }, [searchQuery, users])
@@ -133,7 +133,7 @@ function UsersPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredUsers.map((user) => (
           <div
-            key={user.id}
+            key={user.Id}
             className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow cursor-pointer"
             onClick={() => setSelectedUser(user)}
           >
@@ -143,11 +143,11 @@ function UsersPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-semibold text-gray-900 truncate">
-                  {user.full_name}
+                  {user.FullName}
                 </h3>
                 <div className="flex items-center space-x-1 text-sm text-gray-600">
                   <Mail className="h-3 w-3" />
-                  <span className="truncate">{user.email}</span>
+                  <span className="truncate">{user.Email}</span>
                 </div>
               </div>
             </div>
@@ -257,8 +257,8 @@ function UsersPage() {
                   <User className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-900">{selectedUser.full_name}</h3>
-                  <p className="text-gray-600">{selectedUser.email}</p>
+                  <h3 className="text-2xl font-bold text-gray-900">{selectedUser.FullName}</h3>
+                  <p className="text-gray-600">{selectedUser.Email}</p>
                 </div>
               </div>
 
