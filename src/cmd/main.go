@@ -1,8 +1,6 @@
 package main
 
-import (
-	"github.com/yosp313/gotify/internal/api"
-)
+import "github.com/yosp313/gotify/src/internal/api"
 
 func main() {
 	api.Run()

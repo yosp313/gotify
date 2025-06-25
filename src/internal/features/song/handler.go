@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yosp313/gotify/internal/utils"
+	"github.com/yosp313/gotify/src/internal/utils"
 )
 
 type SongHandler struct {

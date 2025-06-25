@@ -3,9 +3,9 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/yosp313/gotify/internal/features/song"
-	"github.com/yosp313/gotify/internal/features/user"
-	"github.com/yosp313/gotify/internal/utils"
+	"github.com/yosp313/gotify/src/internal/features/song"
+	"github.com/yosp313/gotify/src/internal/features/user"
+	"github.com/yosp313/gotify/src/internal/utils"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
