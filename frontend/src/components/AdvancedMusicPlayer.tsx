@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Shuffle, Heart, MoreHorizontal, X, Maximize2 } from 'lucide-react'
-import type { Song } from '../services/api'
+import { songApi, type Song } from '../services/api'
 
 interface AudioVisualizerProps {
   audioRef: React.RefObject<HTMLAudioElement | null>
@@ -331,6 +331,12 @@ export function AdvancedMusicPlayer({
   }
 
   const togglePlay = () => {
+    // Validate song before playing
+    if (!song || !songApi.isValidSong(song)) {
+      console.error('Cannot play invalid song:', song)
+      return
+    }
+
     if (isPlaying) {
       onPause()
     } else {
@@ -366,7 +372,7 @@ export function AdvancedMusicPlayer({
           
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-gray-900 truncate">{song.title}</h3>
-            <p className="text-gray-600 text-sm truncate">Artist ID: {song.artist_id.slice(0, 8)}...</p>
+            <p className="text-gray-600 text-sm truncate">{songApi.getArtistName(song)}</p>
             
             {/* Mini Progress Bar */}
             <div className="mt-2 w-full bg-gray-200 rounded-full h-1">
@@ -438,7 +444,7 @@ export function AdvancedMusicPlayer({
             
             <div className="min-w-0 flex-1">
               <h3 className="font-bold text-white text-xl truncate">{song.title}</h3>
-              <p className="text-indigo-200 text-sm truncate">Artist ID: {song.artist_id.slice(0, 8)}...</p>
+              <p className="text-indigo-200 text-sm truncate">{songApi.getArtistName(song)}</p>
               
               {/* Audio Visualizer */}
               <div className="mt-3">

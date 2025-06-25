@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Music, Users, Play, Search, TrendingUp, Clock, Heart, Headphones, Zap, Star } from 'lucide-react'
 import { songApi } from '../services/api'
 import { AdvancedMusicPlayer } from '../components/AdvancedMusicPlayer'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 import type { Song } from '../services/api'
 
 export const Route = createFileRoute('/')({
@@ -23,8 +24,10 @@ function Dashboard() {
     const fetchData = async () => {
       try {
         const allSongs = await songApi.getAll()
-        setSongs(allSongs)
-        setRecentSongs(allSongs.slice(-6)) // Get last 6 songs
+        // Filter out songs with invalid data
+        const validSongs = allSongs.filter(songApi.isValidSong)
+        setSongs(validSongs)
+        setRecentSongs(validSongs.slice(-6)) // Get last 6 songs
       } catch (error) {
         console.error('Error fetching data:', error)
       } finally {
@@ -52,7 +55,10 @@ function Dashboard() {
 
   const playAudio = (songId: string) => {
     const song = songs.find(s => s.id === songId)
-    if (!song) return
+    if (!song || !songApi.isValidSong(song)) {
+      console.error('Invalid song or song not found:', songId)
+      return
+    }
 
     setCurrentSong(song)
     setPlayingSongId(songId)
@@ -103,14 +109,7 @@ function Dashboard() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex items-center space-x-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <div className="text-gray-600">Loading your music...</div>
-        </div>
-      </div>
-    )
+    return <LoadingSpinner size="lg" message="Loading your music..." />
   }
 
   return (
@@ -256,7 +255,7 @@ function Dashboard() {
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <h4 className="font-semibold text-gray-900 truncate group-hover:text-indigo-700 transition-colors">{song.title}</h4>
-                          <p className="text-sm text-gray-600 mt-1">Artist ID: {song.artist_id.slice(0, 8)}...</p>
+                          <p className="text-sm text-gray-600 mt-1">{songApi.getArtistName(song)}</p>
                         </div>
                         <button
                           onClick={() => playingSongId === song.id ? stopAudio() : playAudio(song.id)}
@@ -358,7 +357,7 @@ function Dashboard() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-indigo-700 transition-colors truncate">
                   {song.title}
                 </h3>
-                <p className="text-sm text-gray-600 mb-4">Artist ID: {song.artist_id.slice(0, 8)}...</p>
+                <p className="text-sm text-gray-600 mb-4">{songApi.getArtistName(song)}</p>
                 <div className="w-full bg-gray-200 rounded-full h-1">
                   <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-1 rounded-full w-0 group-hover:w-full transition-all duration-1000"></div>
                 </div>

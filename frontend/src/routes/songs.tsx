@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Music, Play, Search, Filter, Waves, Headphones, Clock, User, Heart, MoreHorizontal, Pause, Volume2 } from 'lucide-react'
 import { songApi } from '../services/api'
 import { AdvancedMusicPlayer } from '../components/AdvancedMusicPlayer'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 import type { Song } from '../services/api'
 
 export const Route = createFileRoute('/songs')({
@@ -21,20 +22,20 @@ function SongsPage() {
   const [likedSongs, setLikedSongs] = useState<Set<string>>(new Set())
   const [isPlayerMinimized, setIsPlayerMinimized] = useState(false)
 
-  // Helper function to validate song ID
-  const isValidSongId = (songId: string) => {
-    return songId && songId !== '00000000-0000-0000-0000-000000000000'
+  // Helper function to get artist name
+  const getArtistName = (song: Song) => {
+    return songApi.getArtistName(song)
   }
 
   useEffect(() => {
     const fetchSongs = async () => {
       try {
         const allSongs = await songApi.getAll()
-        // Filter out songs with invalid IDs
-        const validSongs = allSongs.filter(song => isValidSongId(song.id))
+        // Filter out songs with invalid data
+        const validSongs = allSongs.filter(songApi.isValidSong)
         
         if (validSongs.length !== allSongs.length) {
-          console.warn(`Filtered out ${allSongs.length - validSongs.length} songs with invalid IDs`)
+          console.warn(`Filtered out ${allSongs.length - validSongs.length} songs with invalid data`)
         }
         
         setSongs(validSongs)
@@ -59,21 +60,21 @@ function SongsPage() {
     }
 
     if (selectedArtist) {
-      filtered = filtered.filter(song => song.artist_id === selectedArtist)
+      filtered = filtered.filter(song => 
+        song.artist?.full_name?.toLowerCase().includes(selectedArtist.toLowerCase()) ||
+        song.artist_id === selectedArtist
+      )
     }
 
     setFilteredSongs(filtered)
   }, [searchQuery, selectedArtist, songs])
 
   const playAudio = (songId: string) => {
-    // Validate song ID - don't play songs with invalid UUIDs
-    if (!songId || songId === '00000000-0000-0000-0000-000000000000') {
-      console.error('Invalid song ID - cannot play audio')
+    const song = songs.find(s => s.id === songId)
+    if (!song || !songApi.isValidSong(song)) {
+      console.error('Invalid song or song not found:', songId)
       return
     }
-
-    const song = songs.find(s => s.id === songId)
-    if (!song) return
 
     setCurrentSong(song)
     setPlayingSongId(songId)
@@ -129,17 +130,16 @@ function SongsPage() {
     setLikedSongs(newLikedSongs)
   }
 
-  const uniqueArtists = Array.from(new Set(songs.map(song => song.artist_id)))
+  const uniqueArtists = Array.from(
+    new Set(
+      songs
+        .filter(song => song.artist?.full_name) // Only include songs with artist data
+        .map(song => song.artist!.full_name)
+    )
+  )
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex items-center space-x-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <div className="text-gray-600">Loading your music library...</div>
-        </div>
-      </div>
-    )
+    return <LoadingSpinner size="lg" message="Loading your music library..." />
   }
 
   return (
@@ -215,9 +215,9 @@ function SongsPage() {
                 className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 transition-all appearance-none"
               >
                 <option value="">All Artists</option>
-                {uniqueArtists.map((artistId) => (
-                  <option key={artistId} value={artistId}>
-                    Artist {artistId.slice(0, 8)}...
+                {uniqueArtists.map((artistName) => (
+                  <option key={artistName} value={artistName}>
+                    {artistName}
                   </option>
                 ))}
               </select>
@@ -277,7 +277,7 @@ function SongsPage() {
                     </h3>
                     <div className="flex items-center space-x-2 text-sm text-gray-600 mb-3">
                       <User className="h-3 w-3" />
-                      <span>Artist {song.artist_id.slice(0, 8)}...</span>
+                      <span>{getArtistName(song)}</span>
                     </div>
                     <div className="flex items-center space-x-2 text-xs text-gray-500">
                       <Clock className="h-3 w-3" />
@@ -347,7 +347,7 @@ function SongsPage() {
                       <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
                         <div className="flex items-center space-x-1">
                           <User className="h-3 w-3" />
-                          <span>Artist {song.artist_id.slice(0, 8)}...</span>
+                          <span>{getArtistName(song)}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <Clock className="h-3 w-3" />

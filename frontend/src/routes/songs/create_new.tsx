@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { ArrowLeft, Upload, Music, Info } from 'lucide-react'
 import { songApi, authApi, type CreateSongRequest } from '../../services/api'
 
-export const Route = createFileRoute('/songs/create')({
+export const Route = createFileRoute('/songs/create_new')({
   component: CreateSongPage,
 })
 
@@ -54,12 +54,6 @@ function CreateSongPage() {
       return
     }
 
-    // Check if user is authenticated
-    if (!currentUser) {
-      setErrors({ general: 'You must be logged in to create a song' })
-      return
-    }
-
     setLoading(true)
     
     try {
@@ -68,19 +62,9 @@ function CreateSongPage() {
       navigate({ to: '/songs' })
     } catch (error: any) {
       console.error('Error creating song:', error)
-      
-      // Handle specific error messages
-      let errorMessage = 'Failed to create song. Please try again.'
-      
-      if (error.response?.data?.error) {
-        errorMessage = error.response.data.error
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Authentication required. Please log in again.'
-      } else if (error.response?.status === 400) {
-        errorMessage = 'Invalid song data. Please check your input.'
-      }
-      
-      setErrors({ general: errorMessage })
+      setErrors({ 
+        general: error.response?.data?.error || 'Failed to create song. Please try again.' 
+      })
     } finally {
       setLoading(false)
     }

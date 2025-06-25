@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { Users, User, Mail, Search, Plus, Music } from 'lucide-react'
 import { userApi, songApi } from '../services/api'
+import { LoadingSpinner } from '../components/LoadingSpinner'
 import type { User as UserType, Song } from '../services/api'
 
 export const Route = createFileRoute('/users')({
@@ -27,8 +28,11 @@ function UsersPage() {
       try {
         const [allSongs] = await Promise.all([songApi.getAll()])
         
-        // Get unique artist IDs from songs
-        const artistIds = Array.from(new Set(allSongs.map(song => song.artist_id)))
+        // Filter valid songs first
+        const validSongs = allSongs.filter(songApi.isValidSong)
+        
+        // Get unique artist IDs from valid songs
+        const artistIds = Array.from(new Set(validSongs.map(song => song.artist_id)))
         
         // Fetch user data for each artist
         const usersWithSongs: UserWithSongs[] = []
@@ -36,7 +40,7 @@ function UsersPage() {
         for (const artistId of artistIds) {
           try {
             const { user } = await userApi.getById(artistId)
-            const artistSongs = allSongs.filter(song => song.artist_id === artistId)
+            const artistSongs = validSongs.filter(song => song.artist_id === artistId)
             
             usersWithSongs.push({
               ...user,
@@ -44,12 +48,13 @@ function UsersPage() {
               songs: artistSongs
             })
           } catch (error) {
-            // If user not found, create a placeholder
-            const artistSongs = allSongs.filter(song => song.artist_id === artistId)
+            // If user not found, create a placeholder (this shouldn't happen with proper relationships)
+            console.warn('User not found for artist ID:', artistId)
+            const artistSongs = validSongs.filter(song => song.artist_id === artistId)
             usersWithSongs.push({
               id: artistId,
-              full_name: `Artist ${artistId.slice(0, 8)}`,
-              email: `artist-${artistId.slice(0, 8)}@example.com`,
+              full_name: `Unknown Artist (${artistId.slice(0, 8)})`,
+              email: `unknown-${artistId.slice(0, 8)}@example.com`,
               songCount: artistSongs.length,
               songs: artistSongs
             })
@@ -90,11 +95,7 @@ function UsersPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    )
+    return <LoadingSpinner size="lg" message="Loading artists..." />
   }
 
   return (
@@ -278,12 +279,17 @@ function UsersPage() {
                         </div>
                         <button
                           onClick={() => {
-                            const audio = new Audio(songApi.getStreamUrl(song.id))
-                            audio.play().catch(console.error)
+                            if (songApi.isValidSong(song)) {
+                              const audio = new Audio(songApi.getStreamUrl(song.id))
+                              audio.play().catch(console.error)
+                            } else {
+                              console.warn('Cannot play invalid song:', song)
+                            }
                           }}
-                          className="text-indigo-600 hover:text-indigo-800 text-sm"
+                          className="text-indigo-600 hover:text-indigo-800 text-sm disabled:opacity-50"
+                          disabled={!songApi.isValidSong(song)}
                         >
-                          Play
+                          {songApi.isValidSong(song) ? 'Play' : 'Unavailable'}
                         </button>
                       </div>
                     ))}

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Shuffle, Heart, MoreHorizontal, X } from 'lucide-react'
-import type { Song } from '../services/api'
+import { songApi, type Song } from '../services/api'
 
 interface MusicPlayerProps {
   song: Song | null
@@ -10,7 +10,6 @@ interface MusicPlayerProps {
   onClose: () => void
   onNext?: () => void
   onPrevious?: () => void
-  streamUrl?: string
 }
 
 export function MusicPlayer({ 
@@ -20,8 +19,7 @@ export function MusicPlayer({
   onPause, 
   onClose, 
   onNext, 
-  onPrevious,
-  streamUrl 
+  onPrevious
 }: MusicPlayerProps) {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -31,6 +29,8 @@ export function MusicPlayer({
   const [isShuffle, setIsShuffle] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [isVisualizerActive, setIsVisualizerActive] = useState(false)
+  const [authenticatedStreamUrl, setAuthenticatedStreamUrl] = useState<string | null>(null)
+  const [streamError, setStreamError] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -101,15 +101,40 @@ export function MusicPlayer({
     }
   }
 
+  // Load authenticated stream URL when song changes
+  useEffect(() => {
+    if (!song) {
+      setAuthenticatedStreamUrl(null)
+      setStreamError(null)
+      return
+    }
+
+    const loadStream = async () => {
+      try {
+        setStreamError(null)
+        // First try with token in URL (simpler approach)
+        const streamUrl = songApi.getStreamUrl(song.id)
+        setAuthenticatedStreamUrl(streamUrl)
+      } catch (error) {
+        console.error('Failed to load stream:', error)
+        setStreamError('Failed to load audio stream')
+        setAuthenticatedStreamUrl(null)
+      }
+    }
+
+    loadStream()
+  }, [song])
+
   useEffect(() => {
     const audio = audioRef.current
-    if (!audio || !streamUrl || !song) return
+    if (!audio || !authenticatedStreamUrl || !song) return
 
     const updateTime = () => setCurrentTime(audio.currentTime)
     const updateDuration = () => setDuration(audio.duration)
     
     const handleError = (error: Event) => {
       console.error('Audio playback error:', error)
+      setStreamError('Audio playback failed')
       onPause() // Stop playback on error
     }
 
@@ -146,7 +171,7 @@ export function MusicPlayer({
       audio.removeEventListener('play', handlePlay)
       audio.removeEventListener('pause', handlePause)
     }
-  }, [streamUrl, onNext, song, onPause, isPlaying])
+  }, [authenticatedStreamUrl, onNext, song, onPause, isPlaying])
 
   // Cleanup audio context on unmount
   useEffect(() => {
@@ -193,11 +218,11 @@ export function MusicPlayer({
 
   const togglePlay = () => {
     const audio = audioRef.current
-    if (!audio || !streamUrl || !song) return
+    if (!audio || !authenticatedStreamUrl || !song) return
 
     // Validate song ID before attempting to play
-    if (!song.id || song.id === '00000000-0000-0000-0000-000000000000') {
-      console.error('Cannot play song with invalid ID:', song.id)
+    if (!song.id || !songApi.isValidSong(song)) {
+      console.error('Cannot play song with invalid data:', song)
       return
     }
 
@@ -207,6 +232,7 @@ export function MusicPlayer({
     } else {
       audio.play().catch(error => {
         console.error('Error playing audio:', error)
+        setStreamError('Failed to play audio')
         onPause() // Ensure UI reflects failed play state
       })
       onPlay()
@@ -217,10 +243,10 @@ export function MusicPlayer({
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-200 shadow-2xl z-50 animate-slide-up">
-      {streamUrl && (
+      {authenticatedStreamUrl && (
         <audio
           ref={audioRef}
-          src={streamUrl}
+          src={authenticatedStreamUrl}
           autoPlay={isPlaying}
           crossOrigin="anonymous"
         />
@@ -254,7 +280,10 @@ export function MusicPlayer({
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="font-semibold text-gray-900 truncate text-lg">{song.title}</h3>
-              <p className="text-gray-600 text-sm truncate">Artist ID: {song.artist_id.slice(0, 8)}...</p>
+              <p className="text-gray-600 text-sm truncate">{songApi.getArtistName(song)}</p>
+              {streamError && (
+                <p className="text-red-500 text-xs truncate mt-1">{streamError}</p>
+              )}
             </div>
             <button
               onClick={() => setIsLiked(!isLiked)}

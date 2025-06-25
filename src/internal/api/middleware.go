@@ -27,14 +27,21 @@ func AuthMiddleware(authService *auth.JwtAuthService) gin.HandlerFunc {
 		// and validate it using your authentication service.
 		// For simplicity, we will just check if a token is present.
 
+		var token string
 		header := c.GetHeader("Authorization")
-		if header == "" {
+		
+		if header != "" {
+			token = header[len("Bearer "):] // Assuming the token is prefixed with "Bearer "
+		} else {
+			// For streaming endpoints, also check query parameter
+			token = c.Query("token")
+		}
+
+		if token == "" {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
 			c.Abort()
 			return
 		}
-
-		token := header[len("Bearer "):] // Assuming the token is prefixed with "Bearer "
 
 		// Validate the token (this is a placeholder, replace with actual validation logic)
 		valid, err := authService.ValidateToken(token)
