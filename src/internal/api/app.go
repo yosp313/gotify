@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"github.com/yosp313/gotify/internal/features/song"
 	"github.com/yosp313/gotify/internal/features/user"
 	"github.com/yosp313/gotify/internal/utils"
@@ -10,7 +11,12 @@ import (
 )
 
 func Run() {
-	db, err := gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{})
+	error := godotenv.Load(".env")
+	if error != nil {
+		utils.HandleError(error, "Failed to load .env file")
+	}
+
+	db, err := gorm.Open(sqlite.Open(utils.GetEnv("DATABASE_URL", "test.db")), &gorm.Config{})
 	utils.HandleError(err, "Failed to connect to the database")
 
 	err = db.AutoMigrate(&user.User{}, &song.Song{})
@@ -37,5 +43,5 @@ func Run() {
 		song.SetupRoutes(songRouter, songHandler)
 	}
 
-	c.Run(":8080")
+	c.Run(utils.GetEnv("PORT", ":8080"))
 }
