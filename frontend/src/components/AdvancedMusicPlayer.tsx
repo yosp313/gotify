@@ -1,189 +1,210 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Shuffle, Heart, MoreHorizontal, X, Maximize2 } from 'lucide-react'
-import { songApi, type Song } from '../services/api'
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Heart,
+  Maximize2,
+  MoreHorizontal,
+  Pause,
+  Play,
+  Repeat,
+  Shuffle,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
+import { type Song, songApi } from "../services/api";
 
 interface AudioVisualizerProps {
-  audioRef: React.RefObject<HTMLAudioElement | null>
-  isPlaying: boolean
-  className?: string
+  audioRef: React.RefObject<HTMLAudioElement | null>;
+  isPlaying: boolean;
+  className?: string;
 }
 
 // Global audio context singleton to avoid multiple contexts
-let globalAudioContext: AudioContext | null = null
-let audioContextPromise: Promise<AudioContext> | null = null
+let globalAudioContext: AudioContext | null = null;
+let audioContextPromise: Promise<AudioContext> | null = null;
 
 const getAudioContext = async (): Promise<AudioContext> => {
-  if (globalAudioContext && globalAudioContext.state !== 'closed') {
-    return globalAudioContext
+  if (globalAudioContext && globalAudioContext.state !== "closed") {
+    return globalAudioContext;
   }
-  
+
   if (audioContextPromise) {
-    return audioContextPromise
+    return audioContextPromise;
   }
-  
+
   audioContextPromise = new Promise((resolve, reject) => {
     try {
-      globalAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-      resolve(globalAudioContext)
+      globalAudioContext =
+        new (window.AudioContext || (window as any).webkitAudioContext)();
+      resolve(globalAudioContext);
     } catch (error) {
-      reject(error)
+      reject(error);
     }
-  })
-  
-  return audioContextPromise
-}
+  });
 
-function AudioVisualizer({ audioRef, isPlaying, className = '' }: AudioVisualizerProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationRef = useRef<number | undefined>(undefined)
-  const analyserRef = useRef<AnalyserNode | undefined>(undefined)
-  const dataArrayRef = useRef<Uint8Array | undefined>(undefined)
-  const sourceRef = useRef<MediaElementAudioSourceNode | undefined>(undefined)
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  return audioContextPromise;
+};
+
+function AudioVisualizer(
+  { audioRef, isPlaying, className = "" }: AudioVisualizerProps,
+) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number | undefined>(undefined);
+  const analyserRef = useRef<AnalyserNode | undefined>(undefined);
+  const dataArrayRef = useRef<Uint8Array | undefined>(undefined);
+  const sourceRef = useRef<MediaElementAudioSourceNode | undefined>(undefined);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    if (!audioRef.current || !canvasRef.current) return
+    if (!audioRef.current || !canvasRef.current) return;
 
-    const audio = audioRef.current
+    const audio = audioRef.current;
 
     // Only set up if we have a new audio element
     if (currentAudioRef.current !== audio) {
       const setupAudio = async () => {
         try {
-          const audioContext = await getAudioContext()
-          
+          const audioContext = await getAudioContext();
+
           // Resume audio context if suspended
-          if (audioContext.state === 'suspended') {
-            await audioContext.resume()
+          if (audioContext.state === "suspended") {
+            await audioContext.resume();
           }
-          
+
           // Clean up previous source if exists
           if (sourceRef.current) {
             try {
-              sourceRef.current.disconnect()
+              sourceRef.current.disconnect();
             } catch (e) {
               // Ignore disconnection errors
             }
           }
-          
+
           // Check if audio element already has a source node
-          let sourceNode = sourceRef.current
+          let sourceNode = sourceRef.current;
           if (!sourceNode) {
             try {
-              sourceNode = audioContext.createMediaElementSource(audio)
-              sourceRef.current = sourceNode
+              sourceNode = audioContext.createMediaElementSource(audio);
+              sourceRef.current = sourceNode;
             } catch (error) {
-              console.warn('Could not create media source, audio element may already be connected:', error)
+              console.warn(
+                "Could not create media source, audio element may already be connected:",
+                error,
+              );
               // Audio will still play without visualization
-              currentAudioRef.current = audio
-              return
+              currentAudioRef.current = audio;
+              return;
             }
           }
-          
+
           // Create analyser
-          analyserRef.current = audioContext.createAnalyser()
-          analyserRef.current.fftSize = 256
-          
-          const bufferLength = analyserRef.current.frequencyBinCount
-          dataArrayRef.current = new Uint8Array(bufferLength)
-          
+          analyserRef.current = audioContext.createAnalyser();
+          analyserRef.current.fftSize = 256;
+
+          const bufferLength = analyserRef.current.frequencyBinCount;
+          dataArrayRef.current = new Uint8Array(bufferLength);
+
           // Connect nodes: source -> analyser -> destination
-          sourceNode.connect(analyserRef.current)
-          analyserRef.current.connect(audioContext.destination)
-          
-          currentAudioRef.current = audio
+          sourceNode.connect(analyserRef.current);
+          analyserRef.current.connect(audioContext.destination);
+
+          currentAudioRef.current = audio;
         } catch (error) {
-          console.error('Error setting up audio visualization:', error)
+          console.error("Error setting up audio visualization:", error);
           // Ensure audio still works without visualization
-          currentAudioRef.current = audio
+          currentAudioRef.current = audio;
         }
-      }
-      
-      setupAudio()
+      };
+
+      setupAudio();
     }
 
     return () => {
       if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
+        cancelAnimationFrame(animationRef.current);
       }
-    }
-  }, [audioRef])
+    };
+  }, [audioRef]);
 
   // Cleanup when component unmounts
   useEffect(() => {
     return () => {
       if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
+        cancelAnimationFrame(animationRef.current);
       }
       if (sourceRef.current) {
-        sourceRef.current.disconnect()
+        sourceRef.current.disconnect();
       }
-    }
-  }, [])
+    };
+  }, []);
 
   const drawVisualizer = useCallback(() => {
-    if (!canvasRef.current || !analyserRef.current || !dataArrayRef.current) return
+    if (!canvasRef.current || !analyserRef.current || !dataArrayRef.current) {
+      return;
+    }
 
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')!
-    const analyser = analyserRef.current
-    const dataArray = dataArrayRef.current
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d")!;
+    const analyser = analyserRef.current;
+    const dataArray = dataArrayRef.current;
 
     try {
-      analyser.getByteFrequencyData(dataArray)
+      analyser.getByteFrequencyData(dataArray);
     } catch (error) {
       // Audio context might not be ready yet
       if (isPlaying) {
-        animationRef.current = requestAnimationFrame(drawVisualizer)
+        animationRef.current = requestAnimationFrame(drawVisualizer);
       }
-      return
+      return;
     }
 
     // Clear canvas
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const barWidth = canvas.width / dataArray.length * 2.5
-    let barHeight
-    let x = 0
+    const barWidth = canvas.width / dataArray.length * 2.5;
+    let barHeight;
+    let x = 0;
 
     // Create gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height)
-    gradient.addColorStop(0, '#8B5CF6')
-    gradient.addColorStop(0.5, '#6366F1')
-    gradient.addColorStop(1, '#3B82F6')
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "#8B5CF6");
+    gradient.addColorStop(0.5, "#6366F1");
+    gradient.addColorStop(1, "#3B82F6");
 
     for (let i = 0; i < dataArray.length; i++) {
-      barHeight = (dataArray[i] / 255) * canvas.height * 0.8
+      barHeight = (dataArray[i] / 255) * canvas.height * 0.8;
 
-      ctx.fillStyle = gradient
-      ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight)
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
 
       // Add glow effect
-      ctx.shadowColor = '#6366F1'
-      ctx.shadowBlur = 10
-      ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight)
-      ctx.shadowBlur = 0
+      ctx.shadowColor = "#6366F1";
+      ctx.shadowBlur = 10;
+      ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+      ctx.shadowBlur = 0;
 
-      x += barWidth + 1
+      x += barWidth + 1;
     }
 
     if (isPlaying) {
-      animationRef.current = requestAnimationFrame(drawVisualizer)
+      animationRef.current = requestAnimationFrame(drawVisualizer);
     }
-  }, [isPlaying])
+  }, [isPlaying]);
 
   useEffect(() => {
     if (isPlaying) {
       // Resume audio context if it's suspended (some browsers require user interaction)
-      if (globalAudioContext && globalAudioContext.state === 'suspended') {
-        globalAudioContext.resume().catch(console.error)
+      if (globalAudioContext && globalAudioContext.state === "suspended") {
+        globalAudioContext.resume().catch(console.error);
       }
-      drawVisualizer()
+      drawVisualizer();
     } else if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current)
+      cancelAnimationFrame(animationRef.current);
     }
-  }, [isPlaying, drawVisualizer])
+  }, [isPlaying, drawVisualizer]);
 
   return (
     <canvas
@@ -192,172 +213,230 @@ function AudioVisualizer({ audioRef, isPlaying, className = '' }: AudioVisualize
       height={80}
       className={`bg-gradient-to-r from-slate-900/20 to-indigo-900/20 rounded-lg ${className}`}
     />
-  )
+  );
 }
 
 interface AdvancedMusicPlayerProps {
-  song: Song | null
-  isPlaying: boolean
-  onPlay: () => void
-  onPause: () => void
-  onClose: () => void
-  onNext?: () => void
-  onPrevious?: () => void
-  streamUrl?: string
-  isMinimized?: boolean
-  onToggleMinimize?: () => void
+  song: Song | null;
+  isPlaying: boolean;
+  onPlay: () => void;
+  onPause: () => void;
+  onClose: () => void;
+  onNext?: () => void;
+  onPrevious?: () => void;
+  isMinimized?: boolean;
+  onToggleMinimize?: () => void;
 }
 
-export function AdvancedMusicPlayer({ 
-  song, 
-  isPlaying, 
-  onPlay, 
-  onPause, 
-  onClose, 
-  onNext, 
+export function AdvancedMusicPlayer({
+  song,
+  isPlaying,
+  onPlay,
+  onPause,
+  onClose,
+  onNext,
   onPrevious,
-  streamUrl,
   isMinimized = false,
-  onToggleMinimize
+  onToggleMinimize,
 }: AdvancedMusicPlayerProps) {
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [volume, setVolume] = useState(1)
-  const [isMuted, setIsMuted] = useState(false)
-  const [isRepeat, setIsRepeat] = useState(false)
-  const [isShuffle, setIsShuffle] = useState(false)
-  const [isLiked, setIsLiked] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const progressRef = useRef<HTMLDivElement>(null)
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isRepeat, setIsRepeat] = useState(false);
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [authenticatedStreamUrl, setAuthenticatedStreamUrl] = useState<
+    string | null
+  >(null);
+  const [streamError, setStreamError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+
+  // Load authenticated stream URL when song changes
+  useEffect(() => {
+    if (!song) {
+      setAuthenticatedStreamUrl(null);
+      setStreamError(null);
+      return;
+    }
+
+    const loadStream = async () => {
+      try {
+        setStreamError(null);
+        // Use authenticated stream URL with proper authorization headers
+        const streamUrl = await songApi.getAuthenticatedStreamUrl(song.id);
+        setAuthenticatedStreamUrl(streamUrl);
+      } catch (error) {
+        console.error("Failed to load authenticated stream:", error);
+        setStreamError("Failed to load audio stream");
+        setAuthenticatedStreamUrl(null);
+      }
+    };
+
+    loadStream();
+  }, [song]);
 
   useEffect(() => {
-    const audio = audioRef.current
-    if (!audio || !streamUrl) return
+    const audio = audioRef.current;
+    if (!audio || !authenticatedStreamUrl) return;
 
     const updateTime = () => {
       if (!isDragging) {
-        setCurrentTime(audio.currentTime)
+        setCurrentTime(audio.currentTime);
       }
-    }
-    const updateDuration = () => setDuration(audio.duration)
+    };
+    const updateDuration = () => setDuration(audio.duration);
+
+    const handleError = (error: Event) => {
+      console.error("Audio playback error:", error);
+      setStreamError("Audio playback failed");
+      onPause(); // Stop playback on error
+    };
+
     const handleEnded = () => {
       if (isRepeat) {
-        audio.currentTime = 0
-        audio.play()
+        audio.currentTime = 0;
+        audio.play();
       } else if (onNext) {
-        onNext()
+        onNext();
       }
-    }
+    };
 
-    audio.addEventListener('timeupdate', updateTime)
-    audio.addEventListener('loadedmetadata', updateDuration)
-    audio.addEventListener('ended', handleEnded)
+    audio.addEventListener("timeupdate", updateTime);
+    audio.addEventListener("loadedmetadata", updateDuration);
+    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("error", handleError);
 
     return () => {
-      audio.removeEventListener('timeupdate', updateTime)
-      audio.removeEventListener('loadedmetadata', updateDuration)
-      audio.removeEventListener('ended', handleEnded)
-    }
-  }, [streamUrl, onNext, isRepeat, isDragging])
+      audio.removeEventListener("timeupdate", updateTime);
+      audio.removeEventListener("loadedmetadata", updateDuration);
+      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("error", handleError);
+    };
+  }, [authenticatedStreamUrl, onNext, isRepeat, isDragging, onPause]);
 
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume
+      audioRef.current.volume = isMuted ? 0 : volume;
     }
-  }, [volume, isMuted])
+  }, [volume, isMuted]);
 
   useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
+    const audio = audioRef.current;
+    if (!audio) return;
 
     if (isPlaying) {
-      console.log('Attempting to play audio:', streamUrl)
-      audio.play().catch(error => {
-        console.error('Error playing audio:', error)
-        console.log('Audio element state:', {
+      console.log("Attempting to play audio:", authenticatedStreamUrl);
+      audio.play().catch((error) => {
+        console.error("Error playing audio:", error);
+        console.log("Audio element state:", {
           paused: audio.paused,
           src: audio.src,
           readyState: audio.readyState,
-          networkState: audio.networkState
-        })
-      })
+          networkState: audio.networkState,
+        });
+      });
     } else {
-      audio.pause()
+      audio.pause();
     }
-  }, [isPlaying, streamUrl])
+  }, [isPlaying, authenticatedStreamUrl]);
 
   const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60)
-    const seconds = Math.floor(time % 60)
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const audio = audioRef.current
-    const progressBar = progressRef.current
-    if (!audio || !progressBar || !duration) return
-    
-    const rect = progressBar.getBoundingClientRect()
-    const percent = (e.clientX - rect.left) / rect.width
-    const newTime = percent * duration
-    
-    audio.currentTime = newTime
-    setCurrentTime(newTime)
-  }
+    const audio = audioRef.current;
+    const progressBar = progressRef.current;
+    if (!audio || !progressBar || !duration) return;
+
+    const rect = progressBar.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    const newTime = percent * duration;
+
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
 
   const handleProgressMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    setIsDragging(true)
-    handleProgressClick(e)
-  }
+    setIsDragging(true);
+    handleProgressClick(e);
+  };
 
   const handleProgressMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDragging) return
-    handleProgressClick(e)
-  }
+    if (!isDragging) return;
+    handleProgressClick(e);
+  };
 
   const handleProgressMouseUp = () => {
-    setIsDragging(false)
-  }
+    setIsDragging(false);
+  };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value) / 100
-    setVolume(newVolume)
-    setIsMuted(false)
-  }
+    const newVolume = parseFloat(e.target.value) / 100;
+    setVolume(newVolume);
+    setIsMuted(false);
+  };
 
   const toggleMute = () => {
-    setIsMuted(!isMuted)
-  }
+    setIsMuted(!isMuted);
+  };
 
   const togglePlay = () => {
     // Validate song before playing
     if (!song || !songApi.isValidSong(song)) {
-      console.error('Cannot play invalid song:', song)
-      return
+      console.error("Cannot play invalid song:", song);
+      return;
     }
 
     if (isPlaying) {
-      onPause()
+      onPause();
     } else {
-      onPlay()
+      onPlay();
     }
-  }
+  };
 
-  if (!song) return null
+  if (!song) return null;
+
+  // Show error state if streaming fails
+  if (streamError) {
+    return (
+      <div className="fixed bottom-6 right-6 bg-red-50 border border-red-200 rounded-2xl shadow-2xl p-4 min-w-80 z-50">
+        <div className="flex items-center space-x-3">
+          <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+            <X className="h-6 w-6 text-red-600" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-red-900">Playback Error</h3>
+            <p className="text-red-700 text-sm">{streamError}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-red-400 hover:text-red-600 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isMinimized) {
     return (
       <div className="fixed bottom-6 right-6 bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-4 min-w-80 animate-scale-in z-50">
-        {streamUrl && (
+        {authenticatedStreamUrl && (
           <audio
             ref={audioRef}
-            src={streamUrl}
+            src={authenticatedStreamUrl || undefined}
             preload="metadata"
             crossOrigin="anonymous"
           />
         )}
-        
+
         <div className="flex items-center space-x-4">
           <div className="relative group">
             <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -366,35 +445,41 @@ export function AdvancedMusicPlayer({
               </div>
             </div>
             {isPlaying && (
-              <div className="absolute -inset-1 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl blur opacity-25 animate-pulse"></div>
+              <div className="absolute -inset-1 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl blur opacity-25 animate-pulse">
+              </div>
             )}
           </div>
-          
+
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 truncate">{song.title}</h3>
-            <p className="text-gray-600 text-sm truncate">{songApi.getArtistName(song)}</p>
-            
+            <h3 className="font-semibold text-gray-900 truncate">
+              {song.title}
+            </h3>
+            <p className="text-gray-600 text-sm truncate">
+              {songApi.getArtistName(song)}
+            </p>
+
             {/* Mini Progress Bar */}
             <div className="mt-2 w-full bg-gray-200 rounded-full h-1">
-              <div 
+              <div
                 className="bg-gradient-to-r from-indigo-500 to-purple-600 h-1 rounded-full transition-all duration-300"
-                style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-              ></div>
+                style={{
+                  width: `${duration ? (currentTime / duration) * 100 : 0}%`,
+                }}
+              >
+              </div>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <button
               onClick={togglePlay}
               className="p-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105"
             >
-              {isPlaying ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4 ml-0.5" />
-              )}
+              {isPlaying
+                ? <Pause className="h-4 w-4" />
+                : <Play className="h-4 w-4 ml-0.5" />}
             </button>
-            
+
             {onToggleMinimize && (
               <button
                 onClick={onToggleMinimize}
@@ -403,7 +488,7 @@ export function AdvancedMusicPlayer({
                 <Maximize2 className="h-4 w-4" />
               </button>
             )}
-            
+
             <button
               onClick={onClose}
               className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all"
@@ -413,20 +498,20 @@ export function AdvancedMusicPlayer({
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-slate-900/95 to-indigo-900/95 backdrop-blur-xl border-t border-white/10 shadow-2xl z-50 animate-slide-up">
-      {streamUrl && (
+      {authenticatedStreamUrl && (
         <audio
           ref={audioRef}
-          src={streamUrl}
+          src={authenticatedStreamUrl || undefined}
           preload="metadata"
           crossOrigin="anonymous"
         />
       )}
-      
+
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between">
           {/* Song Info & Visualizer */}
@@ -438,18 +523,23 @@ export function AdvancedMusicPlayer({
                 </div>
               </div>
               {isPlaying && (
-                <div className="absolute -inset-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl blur-lg opacity-40 animate-pulse"></div>
+                <div className="absolute -inset-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl blur-lg opacity-40 animate-pulse">
+                </div>
               )}
             </div>
-            
+
             <div className="min-w-0 flex-1">
-              <h3 className="font-bold text-white text-xl truncate">{song.title}</h3>
-              <p className="text-indigo-200 text-sm truncate">{songApi.getArtistName(song)}</p>
-              
+              <h3 className="font-bold text-white text-xl truncate">
+                {song.title}
+              </h3>
+              <p className="text-indigo-200 text-sm truncate">
+                {songApi.getArtistName(song)}
+              </p>
+
               {/* Audio Visualizer */}
               <div className="mt-3">
-                <AudioVisualizer 
-                  audioRef={audioRef} 
+                <AudioVisualizer
+                  audioRef={audioRef}
                   isPlaying={isPlaying}
                   className="w-72 h-16"
                 />
@@ -458,13 +548,12 @@ export function AdvancedMusicPlayer({
 
             <button
               onClick={() => setIsLiked(!isLiked)}
-              className={`p-3 rounded-full transition-all duration-200 ${
-                isLiked 
-                  ? 'text-red-400 bg-red-500/20 hover:bg-red-500/30' 
-                  : 'text-gray-400 hover:text-red-400 hover:bg-red-500/20'
-              }`}
+              className={`p-3 rounded-full transition-all duration-200 ${isLiked
+                  ? "text-red-400 bg-red-500/20 hover:bg-red-500/30"
+                  : "text-gray-400 hover:text-red-400 hover:bg-red-500/20"
+                }`}
             >
-              <Heart className={`h-6 w-6 ${isLiked ? 'fill-current' : ''}`} />
+              <Heart className={`h-6 w-6 ${isLiked ? "fill-current" : ""}`} />
             </button>
           </div>
 
@@ -473,11 +562,10 @@ export function AdvancedMusicPlayer({
             <div className="flex items-center space-x-6">
               <button
                 onClick={() => setIsShuffle(!isShuffle)}
-                className={`p-2 rounded-full transition-all duration-200 ${
-                  isShuffle 
-                    ? 'text-indigo-400 bg-indigo-500/20' 
-                    : 'text-gray-400 hover:text-white hover:bg-white/10'
-                }`}
+                className={`p-2 rounded-full transition-all duration-200 ${isShuffle
+                    ? "text-indigo-400 bg-indigo-500/20"
+                    : "text-gray-400 hover:text-white hover:bg-white/10"
+                  }`}
               >
                 <Shuffle className="h-5 w-5" />
               </button>
@@ -494,11 +582,9 @@ export function AdvancedMusicPlayer({
                 onClick={togglePlay}
                 className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full hover:from-indigo-600 hover:to-purple-700 shadow-2xl shadow-indigo-500/25 transition-all duration-200 transform hover:scale-105"
               >
-                {isPlaying ? (
-                  <Pause className="h-8 w-8" />
-                ) : (
-                  <Play className="h-8 w-8 ml-1" />
-                )}
+                {isPlaying
+                  ? <Pause className="h-8 w-8" />
+                  : <Play className="h-8 w-8 ml-1" />}
               </button>
 
               <button
@@ -511,11 +597,10 @@ export function AdvancedMusicPlayer({
 
               <button
                 onClick={() => setIsRepeat(!isRepeat)}
-                className={`p-2 rounded-full transition-all duration-200 ${
-                  isRepeat 
-                    ? 'text-indigo-400 bg-indigo-500/20' 
-                    : 'text-gray-400 hover:text-white hover:bg-white/10'
-                }`}
+                className={`p-2 rounded-full transition-all duration-200 ${isRepeat
+                    ? "text-indigo-400 bg-indigo-500/20"
+                    : "text-gray-400 hover:text-white hover:bg-white/10"
+                  }`}
               >
                 <Repeat className="h-5 w-5" />
               </button>
@@ -523,8 +608,10 @@ export function AdvancedMusicPlayer({
 
             {/* Timeline/Progress Bar */}
             <div className="w-full flex items-center space-x-4 text-sm text-gray-300">
-              <span className="text-xs font-mono">{formatTime(currentTime)}</span>
-              <div 
+              <span className="text-xs font-mono">
+                {formatTime(currentTime)}
+              </span>
+              <div
                 ref={progressRef}
                 className="flex-1 relative h-2 bg-white/20 rounded-full cursor-pointer group"
                 onClick={handleProgressClick}
@@ -533,14 +620,21 @@ export function AdvancedMusicPlayer({
                 onMouseUp={handleProgressMouseUp}
                 onMouseLeave={handleProgressMouseUp}
               >
-                <div 
+                <div
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full transition-all duration-150"
-                  style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-                ></div>
-                <div 
+                  style={{
+                    width: `${duration ? (currentTime / duration) * 100 : 0}%`,
+                  }}
+                >
+                </div>
+                <div
                   className="absolute w-4 h-4 bg-white rounded-full shadow-lg top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                  style={{ left: `calc(${duration ? (currentTime / duration) * 100 : 0}% - 8px)` }}
-                ></div>
+                  style={{
+                    left: `calc(${duration ? (currentTime / duration) * 100 : 0
+                      }% - 8px)`,
+                  }}
+                >
+                </div>
               </div>
               <span className="text-xs font-mono">{formatTime(duration)}</span>
             </div>
@@ -553,11 +647,9 @@ export function AdvancedMusicPlayer({
                 onClick={toggleMute}
                 className="p-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-full transition-all"
               >
-                {isMuted ? (
-                  <VolumeX className="h-5 w-5" />
-                ) : (
-                  <Volume2 className="h-5 w-5" />
-                )}
+                {isMuted
+                  ? <VolumeX className="h-5 w-5" />
+                  : <Volume2 className="h-5 w-5" />}
               </button>
               <div className="relative group">
                 <input
@@ -594,7 +686,8 @@ export function AdvancedMusicPlayer({
         </div>
       </div>
 
-      <style>{`
+      <style>
+        {`
         .volume-slider::-webkit-slider-thumb {
           appearance: none;
           width: 16px;
@@ -622,7 +715,8 @@ export function AdvancedMusicPlayer({
             rgba(255, 255, 255, 0.2) ${isMuted ? 0 : volume * 100}%, 
             rgba(255, 255, 255, 0.2) 100%);
         }
-      `}</style>
+      `}
+      </style>
     </div>
-  )
+  );
 }

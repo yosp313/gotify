@@ -112,11 +112,11 @@ export function MusicPlayer({
     const loadStream = async () => {
       try {
         setStreamError(null)
-        // First try with token in URL (simpler approach)
-        const streamUrl = songApi.getStreamUrl(song.id)
+        // Use authenticated stream URL with proper authorization headers
+        const streamUrl = await songApi.getAuthenticatedStreamUrl(song.id)
         setAuthenticatedStreamUrl(streamUrl)
       } catch (error) {
-        console.error('Failed to load stream:', error)
+        console.error('Failed to load authenticated stream:', error)
         setStreamError('Failed to load audio stream')
         setAuthenticatedStreamUrl(null)
       }

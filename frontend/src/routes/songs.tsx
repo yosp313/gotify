@@ -429,7 +429,6 @@ function SongsPage() {
           onClose={handleClose}
           onNext={handleNext}
           onPrevious={handlePrevious}
-          streamUrl={songApi.getStreamUrl(currentSong.id)}
           isMinimized={isPlayerMinimized}
           onToggleMinimize={() => setIsPlayerMinimized(!isPlayerMinimized)}
         />

@@ -29,7 +29,7 @@ func AuthMiddleware(authService *auth.JwtAuthService) gin.HandlerFunc {
 
 		var token string
 		header := c.GetHeader("Authorization")
-		
+
 		if header != "" {
 			token = header[len("Bearer "):] // Assuming the token is prefixed with "Bearer "
 		} else {

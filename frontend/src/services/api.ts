@@ -40,9 +40,9 @@ api.interceptors.response.use(
 
 // Types
 export interface User {
-  id: string;
-  full_name: string;
-  email: string;
+  Id: string;
+  FullName: string;
+  Email: string;
 }
 
 export interface Song {
@@ -117,9 +117,9 @@ export const authApi = {
       // Parse JWT payload (basic decode - in production use a proper JWT library)
       const payload = JSON.parse(atob(token.split(".")[1]));
       return {
-        id: payload.user_id || payload.UserId,
-        full_name: payload.user_name || payload.FullName,
-        email: payload.user_email || payload.Email,
+        Id: payload.user_id || payload.UserId,
+        FullName: payload.user_name || payload.FullName,
+        Email: payload.user_email || payload.Email,
       };
     } catch (error) {
       console.error("Error parsing token:", error);
@@ -130,7 +130,7 @@ export const authApi = {
 
   // Add helper to get artist name from song
   getArtistName: (song: Song): string => {
-    return song.artist?.full_name || "Unknown Artist";
+    return song.artist?.FullName || "Unknown Artist";
   },
 };
 
@@ -190,30 +190,52 @@ export const songApi = {
     return response.data;
   },
 
+  // Get stream URL - this will be used by audio elements
   getStreamUrl: (id: string): string => {
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      return `${API_BASE_URL}/songs/${id}/stream?token=${encodeURIComponent(token)}`;
-    }
     return `${API_BASE_URL}/songs/${id}/stream`;
   },
 
-  // Get authenticated stream as blob URL
-  getAuthenticatedStreamUrl: async (id: string): Promise<string> => {
+  // Get authenticated audio data for playback
+  getAuthenticatedAudio: async (id: string): Promise<string> => {
     try {
-      const response = await api.get(`/songs/${id}/stream`, {
-        responseType: 'blob'
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      // Fetch the audio with proper authentication
+      const response = await fetch(`${API_BASE_URL}/songs/${id}/stream`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
       });
-      return URL.createObjectURL(response.data);
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem("authToken");
+          window.location.href = "/auth";
+          throw new Error("Authentication failed");
+        }
+        throw new Error(`Stream request failed: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      return URL.createObjectURL(blob);
     } catch (error) {
-      console.error('Failed to get authenticated stream:', error);
+      console.error("Failed to get authenticated audio:", error);
       throw error;
     }
   },
 
+  // Legacy method - keeping for backward compatibility
+  getAuthenticatedStreamUrl: async (id: string): Promise<string> => {
+    return songApi.getAuthenticatedAudio(id);
+  },
+
   // Helper functions
   getArtistName: (song: Song): string => {
-    return song.artist?.full_name || "Unknown Artist";
+    console.log(song);
+    return song.artist?.FullName || "Unknown Artist";
   },
 
   isValidSong: (song: Song): boolean => {

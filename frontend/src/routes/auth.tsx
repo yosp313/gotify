@@ -75,7 +75,8 @@ function AuthPage() {
     
     try {
       await authApi.login(loginData)
-      navigate({ to: '/' })
+      // Immediate redirect to dashboard after successful login
+      navigate({ to: '/', replace: true })
     } catch (error: any) {
       console.error('Login error:', error)
       setErrors({ 
@@ -101,7 +102,8 @@ function AuthPage() {
         email: registerData.email,
         password: registerData.password
       })
-      navigate({ to: '/' })
+      // Immediate redirect to dashboard after successful registration and login
+      navigate({ to: '/', replace: true })
     } catch (error: any) {
       console.error('Registration error:', error)
       setErrors({ 
