@@ -1,3 +1,4 @@
 *.db
 *.fuse*
 .env
+songs/*.mp3
