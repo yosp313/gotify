@@ -16,6 +16,7 @@ func Run() {
 		utils.HandleError(error, "Failed to load .env file")
 	}
 
+	// Database connection and migration
 	db, err := gorm.Open(sqlite.Open(utils.GetEnv("DATABASE_URL", "test.db")), &gorm.Config{})
 	utils.HandleError(err, "Failed to connect to the database")
 
@@ -23,6 +24,11 @@ func Run() {
 	utils.HandleError(err, "Failed to migrate database schema")
 
 	c := gin.Default()
+
+	// Middlewares
+	c.Use(CORSMiddleware())
+
+	// API Versioning
 	api := c.Group("/api/v1")
 
 	// Users features

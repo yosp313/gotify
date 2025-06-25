@@ -10,8 +10,17 @@ import (
 type Song struct {
 	Id       uuid.UUID `json:"id" db:"id" gorm:"primaryKey"`
 	Title    string    `json:"title" db:"title" gorm:"not null"`
-	ArtistId uuid.UUID `json:"artist_id" db:"artist_id" gorm:"not null;foreignKey"`
+	ArtistId string    `json:"artist_id" db:"artist_id" gorm:"not null;foreignKey"`
 	Filename string    `json:"-" db:"file_name" gorm:"not null"`
+}
+
+func NewSong(title string, artistId string, filename string) *Song {
+	return &Song{
+		Id:       uuid.New(),
+		Title:    title,
+		ArtistId: artistId,
+		Filename: filename,
+	}
 }
 
 func (s *Song) GetSongFile() (*os.File, error) {

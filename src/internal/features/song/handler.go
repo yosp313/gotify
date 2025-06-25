@@ -13,17 +13,25 @@ type SongHandler struct {
 	service *SongService
 }
 
+type SongCreateRequest struct {
+	Title    string `json:"title" binding:"required"`
+	ArtistId string `json:"artist_id" binding:"required"`
+	Filename string `json:"filename" binding:"required"`
+}
+
 func NewSongHandler(service *SongService) *SongHandler {
 	return &SongHandler{service: service}
 }
 
 func (h *SongHandler) Create(c *gin.Context) {
-	var song Song
-	if err := c.ShouldBindJSON(&song); err != nil {
+	var songReq SongCreateRequest
+	if err := c.ShouldBindJSON(&songReq); err != nil {
 		utils.HandleErrorWithMessage(c, err, "Invalid request body", 400)
 		return
 	}
-	id, err := h.service.Create(&song)
+
+	song := NewSong(songReq.Title, songReq.ArtistId, songReq.Filename)
+	id, err := h.service.Create(song)
 	if err != nil {
 		utils.HandleErrorWithMessage(c, err, "Failed to create song", 500)
 		return
