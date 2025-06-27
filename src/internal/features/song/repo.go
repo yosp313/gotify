@@ -27,7 +27,7 @@ func (r *SqlSongRepository) GetById(id string) (Song, error) {
 
 func (r *SqlSongRepository) GetByTitle(title string) ([]Song, error) {
 	var songs []Song
-	if err := r.db.Preload("Artist").Where("title LIKE %?%", title).Find(&songs).Error; err != nil {
+	if err := r.db.Preload("Artist").Where("title LIKE ?", "%"+title+"%").Find(&songs).Error; err != nil {
 		return nil, err
 	}
 	return songs, nil

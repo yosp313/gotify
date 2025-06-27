@@ -11,7 +11,6 @@ type JwtAuthService struct {
 }
 
 type JwtClaims struct {
-	UserId   string `json:"user_id"`
 	Email    string `json:"email"`
 	FullName string `json:"full_name"`
 	jwt.RegisteredClaims
@@ -30,7 +29,6 @@ func NewJwtAuthService(secretKey string) *JwtAuthService {
 
 func (s *JwtAuthService) GenerateToken(userId, email, fullName string) (string, error) {
 	claims := JwtClaims{
-		UserId:   userId,
 		Email:    email,
 		FullName: fullName,
 		RegisteredClaims: jwt.RegisteredClaims{

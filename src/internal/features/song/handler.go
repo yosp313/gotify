@@ -40,7 +40,10 @@ func (h *SongHandler) Create(c *gin.Context) {
 		return
 	}
 
-	song := NewSong(songReq.Title, userDetails.UserId, songReq.Filename)
+	// Sanitize filename to prevent path traversal
+	safeFilename := filepath.Base(songReq.Filename)
+
+	song := NewSong(songReq.Title, userDetails.Subject, safeFilename)
 	id, err := h.service.Create(song)
 	if err != nil {
 		utils.HandleErrorWithMessage(c, err, "Failed to create song", 500)

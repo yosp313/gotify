@@ -9,10 +9,7 @@ import (
 
 func HandleError(err error, message string) {
 	if err != nil {
-		err := fmt.Errorf(message+" Error: %v", err)
-		if err != nil {
-			fmt.Println(err)
-		}
+		panic(fmt.Sprintf("%s: %v", message, err))
 	}
 }
 

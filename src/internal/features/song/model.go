@@ -1,9 +1,6 @@
 package song
 
 import (
-	"errors"
-	"os"
-
 	"github.com/google/uuid"
 	"github.com/yosp313/gotify/src/internal/utils"
 )
@@ -36,15 +33,6 @@ func NewSong(title string, artistId string, filename string) *Song {
 		ArtistId: artistUUID,
 		Filename: filename,
 	}
-}
-
-func (s *Song) GetSongFile() (*os.File, error) {
-	file, err := os.Open(s.Filename)
-	if err != nil {
-		return nil, errors.New("Couldn't Open the song file " + err.Error())
-	}
-
-	return file, nil
 }
 
 func (s *Song) ChangeSongTitle(newTitle string) {
