@@ -24,6 +24,12 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type UserResponse struct {
+	Id       string `json:"id"`
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
+}
+
 func (handler *UserHandler) HandleSignUp(c *gin.Context) {
 	var request SignUpRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -98,4 +104,23 @@ func (handler *UserHandler) HandleGetUserByEmail(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"user": user})
+}
+
+func (handler *UserHandler) HandleGetAllUsers(c *gin.Context) {
+	users, err := handler.service.GetAllUsers()
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to get users", 500)
+		return
+	}
+
+	var usersResponse []UserResponse
+	for _, user := range users {
+		usersResponse = append(usersResponse, UserResponse{
+			Id:       user.Id.String(),
+			FullName: user.FullName,
+			Email:    user.Email,
+		})
+	}
+
+	c.JSON(200, gin.H{"users": usersResponse})
 }

@@ -69,3 +69,12 @@ func (s *UserService) GetUserByEmail(email string) (User, error) {
 
 	return user, nil
 }
+
+func (s *UserService) GetAllUsers() ([]User, error) {
+	users, err := s.repo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}

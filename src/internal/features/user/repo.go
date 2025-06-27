@@ -32,3 +32,11 @@ func (repo *SqlUserRepository) GetByEmail(email string) (User, error) {
 	}
 	return user, nil
 }
+
+func (repo *SqlUserRepository) GetAll() ([]User, error) {
+	var users []User
+	if err := repo.db.Select("id", "full_name", "email").Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return users, nil
+}

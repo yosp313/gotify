@@ -40,9 +40,9 @@ api.interceptors.response.use(
 
 // Types
 export interface User {
-  Id: string;
-  FullName: string;
-  Email: string;
+  id: string;
+  full_name: string;
+  email: string;
 }
 
 export interface Song {
@@ -117,9 +117,9 @@ export const authApi = {
       // Parse JWT payload (basic decode - in production use a proper JWT library)
       const payload = JSON.parse(atob(token.split(".")[1]));
       return {
-        Id: payload.user_id || payload.UserId,
-        FullName: payload.user_name || payload.FullName,
-        Email: payload.user_email || payload.Email,
+        id: payload.user_id || payload.UserId,
+        full_name: payload.user_name || payload.FullName,
+        email: payload.user_email || payload.Email,
       };
     } catch (error) {
       console.error("Error parsing token:", error);
@@ -130,7 +130,7 @@ export const authApi = {
 
   // Add helper to get artist name from song
   getArtistName: (song: Song): string => {
-    return song.artist?.FullName || "Unknown Artist";
+    return song.artist?.full_name || "Unknown Artist";
   },
 };
 
@@ -235,7 +235,7 @@ export const songApi = {
   // Helper functions
   getArtistName: (song: Song): string => {
     console.log(song);
-    return song.artist?.FullName || "Unknown Artist";
+    return song.artist?.full_name || "Unknown Artist";
   },
 
   isValidSong: (song: Song): boolean => {

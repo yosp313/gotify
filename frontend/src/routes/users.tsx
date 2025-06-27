@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import { Users, User, Mail, Search, Plus, Music } from 'lucide-react'
+import { Users, User, Mail, Search, Music } from 'lucide-react'
 import { userApi, songApi } from '../services/api'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import type { User as UserType, Song } from '../services/api'
@@ -26,40 +26,24 @@ function UsersPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [allSongs] = await Promise.all([songApi.getAll()])
+        // Fetch all users and all songs
+        const [allUsers, allSongs] = await Promise.all([
+          userApi.getAll(),
+          songApi.getAll()
+        ])
         
-        // Filter valid songs first
+        // Filter valid songs
         const validSongs = allSongs.filter(songApi.isValidSong)
         
-        // Get unique artist IDs from valid songs
-        const artistIds = Array.from(new Set(validSongs.map(song => song.artist_id)))
-        
-        // Fetch user data for each artist
-        const usersWithSongs: UserWithSongs[] = []
-        
-        for (const artistId of artistIds) {
-          try {
-            const { user } = await userApi.getById(artistId)
-            const artistSongs = validSongs.filter(song => song.artist_id === artistId)
-            
-            usersWithSongs.push({
-              ...user,
-              songCount: artistSongs.length,
-              songs: artistSongs
-            })
-          } catch (error) {
-            // If user not found, create a placeholder (this shouldn't happen with proper relationships)
-            console.warn('User not found for artist ID:', artistId)
-            const artistSongs = validSongs.filter(song => song.artist_id === artistId)
-            usersWithSongs.push({
-              Id: artistId,
-              FullName: `Unknown Artist (${artistId.slice(0, 8)})`,
-              Email: `unknown-${artistId.slice(0, 8)}@example.com`,
-              songCount: artistSongs.length,
-              songs: artistSongs
-            })
+        // Create users with their song counts
+        const usersWithSongs: UserWithSongs[] = allUsers.map(user => {
+          const userSongs = validSongs.filter(song => song.artist_id === user.id)
+          return {
+            ...user,
+            songCount: userSongs.length,
+            songs: userSongs
           }
-        }
+        })
         
         setUsers(usersWithSongs)
         setFilteredUsers(usersWithSongs)
@@ -75,8 +59,8 @@ function UsersPage() {
 
   useEffect(() => {
     const filtered = users.filter(user =>
-      user.FullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.Email.toLowerCase().includes(searchQuery.toLowerCase())
+      user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase())
     )
     setFilteredUsers(filtered)
   }, [searchQuery, users])
@@ -87,7 +71,7 @@ function UsersPage() {
       await userApi.create(newUser)
       setNewUser({ full_name: '', email: '', password: '' })
       setShowCreateForm(false)
-      // Refresh data
+      // Refresh the users list
       window.location.reload()
     } catch (error) {
       console.error('Error creating user:', error)
@@ -99,9 +83,8 @@ function UsersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Artists</h1>
           <p className="text-gray-600">Manage your music artists and their songs</p>
@@ -110,12 +93,12 @@ function UsersPage() {
           onClick={() => setShowCreateForm(true)}
           className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
         >
-          <Plus className="h-4 w-4" />
+          <Users className="h-4 w-4" />
           <span>Add Artist</span>
         </button>
       </div>
 
-      {/* Search */}
+      {/* Search and Advanced Features */}
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -129,11 +112,21 @@ function UsersPage() {
         </div>
       </div>
 
+      {/* Stats */}
+      <div className="flex items-center justify-between pt-4 border-t">
+        <span className="text-sm text-gray-600">
+          Showing {filteredUsers.length} of {users.length} artists
+        </span>
+        <span className="text-sm text-gray-600">
+          Total songs: {users.reduce((sum, user) => sum + user.songCount, 0)}
+        </span>
+      </div>
+
       {/* Users Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredUsers.map((user) => (
           <div
-            key={user.Id}
+            key={user.id}
             className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow cursor-pointer"
             onClick={() => setSelectedUser(user)}
           >
@@ -143,11 +136,11 @@ function UsersPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-semibold text-gray-900 truncate">
-                  {user.FullName}
+                  {user.full_name}
                 </h3>
                 <div className="flex items-center space-x-1 text-sm text-gray-600">
                   <Mail className="h-3 w-3" />
-                  <span className="truncate">{user.Email}</span>
+                  <span className="truncate">{user.email}</span>
                 </div>
               </div>
             </div>
@@ -257,8 +250,8 @@ function UsersPage() {
                   <User className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-900">{selectedUser.FullName}</h3>
-                  <p className="text-gray-600">{selectedUser.Email}</p>
+                  <h3 className="text-2xl font-bold text-gray-900">{selectedUser.full_name}</h3>
+                  <p className="text-gray-600">{selectedUser.email}</p>
                 </div>
               </div>
 
