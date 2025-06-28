@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as Users_newRouteImport } from './routes/users_new'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as SongsRouteImport } from './routes/songs'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -16,6 +17,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SongsIndexRouteImport } from './routes/songs/index'
 import { Route as SongsCreateRouteImport } from './routes/songs/create'
 
+const Users_newRoute = Users_newRouteImport.update({
+  id: '/users_new',
+  path: '/users_new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/songs': typeof SongsRouteWithChildren
   '/users': typeof UsersRoute
+  '/users_new': typeof Users_newRoute
   '/songs/create': typeof SongsCreateRoute
   '/songs/': typeof SongsIndexRoute
 }
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/users': typeof UsersRoute
+  '/users_new': typeof Users_newRoute
   '/songs/create': typeof SongsCreateRoute
   '/songs': typeof SongsIndexRoute
 }
@@ -68,20 +76,29 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/songs': typeof SongsRouteWithChildren
   '/users': typeof UsersRoute
+  '/users_new': typeof Users_newRoute
   '/songs/create': typeof SongsCreateRoute
   '/songs/': typeof SongsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/songs' | '/users' | '/songs/create' | '/songs/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/songs'
+    | '/users'
+    | '/users_new'
+    | '/songs/create'
+    | '/songs/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/users' | '/songs/create' | '/songs'
+  to: '/' | '/auth' | '/users' | '/users_new' | '/songs/create' | '/songs'
   id:
     | '__root__'
     | '/'
     | '/auth'
     | '/songs'
     | '/users'
+    | '/users_new'
     | '/songs/create'
     | '/songs/'
   fileRoutesById: FileRoutesById
@@ -91,10 +108,18 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   SongsRoute: typeof SongsRouteWithChildren
   UsersRoute: typeof UsersRoute
+  Users_newRoute: typeof Users_newRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/users_new': {
+      id: '/users_new'
+      path: '/users_new'
+      fullPath: '/users_new'
+      preLoaderRoute: typeof Users_newRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/users': {
       id: '/users'
       path: '/users'
@@ -157,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   SongsRoute: SongsRouteWithChildren,
   UsersRoute: UsersRoute,
+  Users_newRoute: Users_newRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
