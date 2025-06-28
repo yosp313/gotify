@@ -1,21 +1,27 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Mail, Music, Search, User as UserIcon, Users } from "lucide-react";
-import { songApi, userApi, authApi, type User, type Song } from "../services/api";
+import {
+  authApi,
+  type Song,
+  songApi,
+  type User,
+  userApi,
+} from "../services/api";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 
 export const Route = createFileRoute("/users")({
   component: UsersPage,
   beforeLoad: async ({ navigate }) => {
     if (!authApi.isAuthenticated()) {
-      navigate({ to: '/auth', replace: true })
-      return
+      navigate({ to: "/auth", replace: true });
+      return;
     }
     try {
-      await authApi.getCurrentUser()
+      await authApi.getCurrentUser();
     } catch (error) {
-      authApi.logout()
-      navigate({ to: '/auth', replace: true })
+      authApi.logout();
+      navigate({ to: "/auth", replace: true });
     }
   },
 });
@@ -53,21 +59,25 @@ function UsersPage() {
           userApi.getAll(),
           songApi.getAll(),
         ]);
+        console.log("Fetched users:", allUsers);
+        console.log("Fetched songs:", allSongs);
 
         // Filter valid songs
-        const validSongs = allSongs.filter(songApi.isValidSong);
+        const validSongs = allSongs;
 
         // Create users with their song counts
-        const usersWithSongs: UserWithSongs[] = allUsers.map((user: User) => {
-          const userSongs = validSongs.filter((song: Song) =>
-            song.artist.id === user.id
-          );
-          return {
-            ...user,
-            songCount: userSongs.length,
-            songs: userSongs,
-          };
-        });
+        const usersWithSongs: UserWithSongs[] = allUsers.map(
+          (user: User) => {
+            const userSongs = validSongs.filter((song: Song) =>
+              song.artist_id === user.id
+            );
+            return {
+              ...user,
+              songCount: userSongs.length,
+              songs: userSongs,
+            };
+          },
+        );
 
         setUsers(usersWithSongs);
         setFilteredUsers(usersWithSongs);
@@ -75,9 +85,9 @@ function UsersPage() {
         console.error("Error fetching data:", err);
         if (err.response?.status === 401) {
           authApi.logout();
-          navigate({ to: '/auth', replace: true });
+          navigate({ to: "/auth", replace: true });
         } else {
-          setError(err.response?.data?.error || 'Failed to fetch users.');
+          setError(err.response?.data?.error || "Failed to fetch users.");
         }
       } finally {
         setLoading(false);
@@ -150,7 +160,8 @@ function UsersPage() {
               Showing {filteredUsers.length} of {users.length} artists
             </span>
             <span className="text-sm text-gray-600">
-              Total songs: {users.reduce((sum, user) => sum + user.songCount, 0)}
+              Total songs:{" "}
+              {users.reduce((sum, user) => sum + user.songCount, 0)}
             </span>
           </div>
 
@@ -182,7 +193,9 @@ function UsersPage() {
                     <Music className="h-4 w-4" />
                     <span>{user.songCount} songs</span>
                   </div>
-                  <div className="text-indigo-600 font-medium">View Details</div>
+                  <div className="text-indigo-600 font-medium">
+                    View Details
+                  </div>
                 </div>
               </div>
             ))}
@@ -329,13 +342,18 @@ function UsersPage() {
                                     );
                                     audio.play().catch(console.error);
                                   } else {
-                                    console.warn("Cannot play invalid song:", song);
+                                    console.warn(
+                                      "Cannot play invalid song:",
+                                      song,
+                                    );
                                   }
                                 }}
                                 className="text-indigo-600 hover:text-indigo-800 text-sm disabled:opacity-50"
                                 disabled={!songApi.isValidSong(song)}
                               >
-                                {songApi.isValidSong(song) ? "Play" : "Unavailable"}
+                                {songApi.isValidSong(song)
+                                  ? "Play"
+                                  : "Unavailable"}
                               </button>
                             </div>
                           ))}

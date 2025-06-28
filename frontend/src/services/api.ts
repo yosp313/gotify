@@ -47,6 +47,9 @@ export interface User {
   created_at?: string;
   updated_at?: string;
 }
+export interface UserResponse {
+  users: User[];
+}
 
 export interface AuthResponse {
   token: string;
@@ -166,8 +169,8 @@ export interface CreateUserRequest {
 
 export const userApi = {
   getAll: async (): Promise<User[]> => {
-    const response = await api.get<User[]>("/users");
-    return response.data;
+    const response = await api.get<UserResponse>("/users");
+    return response.data.users;
   },
   create: async (userData: CreateUserRequest): Promise<User> => {
     const response = await api.post<User>("/users", userData);
