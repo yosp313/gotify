@@ -3,6 +3,7 @@ package auth
 import (
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -60,7 +61,10 @@ func (s *JwtAuthService) ValidateToken(tokenString string) (bool, error) {
 	return true, nil
 }
 
-func (s *JwtAuthService) ParseToken(tokenString string) (*JwtClaims, error) {
+func (s *JwtAuthService) ParseToken(c *gin.Context) (*JwtClaims, error) {
+	header := c.GetHeader("Authorization")
+	tokenString := header[len("Bearer "):]
+
 	token, err := jwt.ParseWithClaims(tokenString, &JwtClaims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid

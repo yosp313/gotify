@@ -1,8 +1,11 @@
 package song
 
 import (
+	"mime/multipart"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yosp313/gotify/src/internal/pkg/auth"
@@ -15,8 +18,8 @@ type SongHandler struct {
 }
 
 type SongCreateRequest struct {
-	Title    string `json:"title" binding:"required"`
-	Filename string `json:"filename" binding:"required"`
+	Title string                `form:"title" binding:"required"`
+	File  *multipart.FileHeader `form:"file" binding:"required"`
 }
 
 func NewSongHandler(service *SongService, authService *auth.JwtAuthService) *SongHandler {
@@ -24,33 +27,96 @@ func NewSongHandler(service *SongService, authService *auth.JwtAuthService) *Son
 }
 
 func (h *SongHandler) Create(c *gin.Context) {
+	// Parse multipart form data
 	var songReq SongCreateRequest
-	if err := c.ShouldBindJSON(&songReq); err != nil {
-		utils.HandleErrorWithMessage(c, err, "Invalid request body", 400)
+	if err := c.ShouldBind(&songReq); err != nil {
+		utils.HandleErrorWithMessage(c, err, "Invalid form data", 400)
 		return
 	}
 
-	authHeader := c.GetHeader("Authorization")
+	// Validate file type
+	if !isValidAudioFile(songReq.File.Filename) {
+		utils.HandleErrorWithMessage(c, nil, "Invalid file type. Only MP3, WAV, OGG, M4A files are allowed", 400)
+		return
+	}
 
-	token := authHeader[len("Bearer "):]
+	// Check file size (e.g., max 50MB)
+	maxSize := int64(50 << 20) // 50MB
+	if songReq.File.Size > maxSize {
+		utils.HandleErrorWithMessage(c, nil, "File too large. Maximum size is 50MB", 400)
+		return
+	}
 
-	userDetails, err := h.authService.ParseToken(token)
+	userDetails, err := h.authService.ParseToken(c)
 	if err != nil {
 		utils.HandleErrorWithMessage(c, err, "Unauthorized", 401)
 		return
 	}
 
-	// Sanitize filename to prevent path traversal
-	safeFilename := filepath.Base(songReq.Filename)
+	// Generate safe filename
+	safeFilename := generateSafeFilename(songReq.File.Filename)
+	filePath := filepath.Join("songs", safeFilename)
 
-	song := NewSong(songReq.Title, userDetails.Subject, safeFilename)
-	id, err := h.service.Create(song)
-	if err != nil {
-		utils.HandleErrorWithMessage(c, err, "Failed to create song", 500)
+	// Ensure songs directory exists
+	if err := os.MkdirAll("songs", 0755); err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to create songs directory", 500)
 		return
 	}
 
-	c.JSON(201, gin.H{"message": "Song created successfully", "id": id})
+	// Check if file already exists
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		utils.HandleErrorWithMessage(c, nil, "File with this name already exists", 409)
+		return
+	}
+
+	// Save the uploaded file
+	if err := c.SaveUploadedFile(songReq.File, filePath); err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to save file", 500)
+		return
+	}
+
+	// Create song record in database
+	song := NewSong(songReq.Title, userDetails.Subject, safeFilename)
+	id, err := h.service.Create(song)
+	if err != nil {
+		// If database creation fails, remove the uploaded file
+		os.Remove(filePath)
+		utils.HandleErrorWithMessage(c, err, "Failed to create song record", 500)
+		return
+	}
+
+	c.JSON(201, gin.H{
+		"message":  "Song uploaded successfully",
+		"id":       id,
+		"filename": safeFilename,
+	})
+}
+
+// Helper function to validate audio file extensions
+func isValidAudioFile(filename string) bool {
+	ext := strings.ToLower(filepath.Ext(filename))
+	validExts := []string{".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac"}
+
+	return slices.Contains(validExts, ext)
+}
+
+// Helper function to generate safe filename
+func generateSafeFilename(originalFilename string) string {
+	// Get file extension
+	ext := filepath.Ext(originalFilename)
+
+	// Remove extension and clean the name
+	name := strings.TrimSuffix(originalFilename, ext)
+
+	// Replace spaces and special characters
+	name = strings.ReplaceAll(name, " ", "_")
+	name = strings.ReplaceAll(name, "(", "")
+	name = strings.ReplaceAll(name, ")", "")
+
+	// You could also add timestamp or UUID to ensure uniqueness
+	// name = fmt.Sprintf("%s_%d", name, time.Now().Unix())
+
+	return name + ext
 }
 
 func (h *SongHandler) GetById(c *gin.Context) {
@@ -125,11 +191,35 @@ func (h *SongHandler) StreamSong(c *gin.Context) {
 		return
 	}
 
+	// Determine content type based on file extension
+	contentType := getContentType(song.Filename)
+
 	// Set appropriate headers
-	c.Header("Content-Type", "audio/mpeg")
+	c.Header("Content-Type", contentType)
 	c.Header("Accept-Ranges", "bytes")
 	c.Header("Cache-Control", "public, max-age=3600")
 
 	// Stream the file
 	c.File(filePath)
+}
+
+// Helper function to get content type based on file extension
+func getContentType(filename string) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+	switch ext {
+	case ".mp3":
+		return "audio/mpeg"
+	case ".wav":
+		return "audio/wav"
+	case ".ogg":
+		return "audio/ogg"
+	case ".m4a":
+		return "audio/mp4"
+	case ".aac":
+		return "audio/aac"
+	case ".flac":
+		return "audio/flac"
+	default:
+		return "audio/mpeg"
+	}
 }

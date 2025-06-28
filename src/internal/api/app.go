@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
+	"github.com/yosp313/gotify/src/internal/config"
 	"github.com/yosp313/gotify/src/internal/features/song"
 	"github.com/yosp313/gotify/src/internal/features/user"
 	"github.com/yosp313/gotify/src/internal/pkg/auth"
@@ -12,13 +12,11 @@ import (
 )
 
 func Run() {
-	error := godotenv.Load(".env")
-	if error != nil {
-		utils.HandleError(error, "Failed to load .env file")
-	}
+	cfg, err := config.LoadConfig()
+	utils.HandleError(err, "Failed to load configuration")
 
 	// Database connection and migration
-	db, err := gorm.Open(sqlite.Open(utils.GetEnv("DATABASE_URL", "test.db")), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(cfg.DatabaseURL), &gorm.Config{})
 	utils.HandleError(err, "Failed to connect to the database")
 
 	err = db.AutoMigrate(&user.User{}, &song.Song{})
@@ -32,7 +30,7 @@ func Run() {
 	// API Versioning
 	api := c.Group("/api/v1")
 
-	authService := auth.NewJwtAuthService(utils.GetEnv("JWT_SECRET", "secret-key"))
+	authService := auth.NewJwtAuthService(cfg.JWTSecret)
 
 	// Users features
 	{
@@ -55,5 +53,5 @@ func Run() {
 		song.SetupRoutes(songRouter, songHandler, AuthMiddleware(authService))
 	}
 
-	c.Run(utils.GetEnv("PORT", ":8080"))
+	c.Run(cfg.Port)
 }
