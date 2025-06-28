@@ -6,8 +6,10 @@ func SetupRoutes(c *gin.RouterGroup, userHandler *UserHandler, authMiddleware gi
 	c.Use(authMiddleware)
 
 	c.GET("", userHandler.HandleGetAllUsers)
+	c.POST("", userHandler.HandleCreateUser)
 	c.GET("/:id", userHandler.HandleGetUserById)
 	c.GET("/email/:email", userHandler.HandleGetUserByEmail)
+	c.GET("/me", userHandler.HandleGetCurrentUser)
 }
 
 func SetupAuthRoutes(c *gin.RouterGroup, userHandler *UserHandler) {

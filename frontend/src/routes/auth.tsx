@@ -1,10 +1,20 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { LogIn, UserPlus, Music, Eye, EyeOff } from 'lucide-react'
-import { authApi, type LoginRequest, type RegisterRequest } from '../services/api'
+import { authApi, type LoginRequest, type SignUpRequest } from '../services/api'
 
 export const Route = createFileRoute('/auth')({
   component: AuthPage,
+  beforeLoad: async ({ navigate }) => {
+    if (authApi.isAuthenticated()) {
+      try {
+        await authApi.getCurrentUser()
+        navigate({ to: '/', replace: true })
+      } catch (error) {
+        authApi.logout()
+      }
+    }
+  },
 })
 
 function AuthPage() {
@@ -19,7 +29,7 @@ function AuthPage() {
     password: ''
   })
   
-  const [registerData, setRegisterData] = useState<RegisterRequest>({
+  const [registerData, setRegisterData] = useState<SignUpRequest>({
     full_name: '',
     email: '',
     password: ''
@@ -66,51 +76,50 @@ function AuthPage() {
   }
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     
-    if (!validateLoginForm()) return
+    if (!validateLoginForm()) return;
     
     setLoading(true)
     setErrors({})
     
     try {
-      await authApi.login(loginData)
-      // Immediate redirect to dashboard after successful login
-      navigate({ to: '/', replace: true })
+      const response = await authApi.login(loginData);
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+        navigate({ to: '/', replace: true });
+      }
     } catch (error: any) {
-      console.error('Login error:', error)
+      console.error('Login error:', error);
       setErrors({ 
         general: error.response?.data?.error || 'Login failed. Please try again.' 
-      })
+      });
     } finally {
       setLoading(false)
     }
   }
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!validateRegisterForm()) return
-    
-    setLoading(true)
-    setErrors({})
-    
+    e.preventDefault();
+
+    if (!validateRegisterForm()) return;
+
+    setLoading(true);
+    setErrors({});
+
     try {
-      await authApi.register(registerData)
-      // Auto-login after successful registration
-      await authApi.login({
-        email: registerData.email,
-        password: registerData.password
-      })
-      // Immediate redirect to dashboard after successful registration and login
-      navigate({ to: '/', replace: true })
+      const response = await authApi.signup(registerData);
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+        navigate({ to: '/', replace: true });
+      }
     } catch (error: any) {
-      console.error('Registration error:', error)
-      setErrors({ 
-        general: error.response?.data?.error || 'Registration failed. Please try again.' 
-      })
+      console.error('Registration error:', error);
+      setErrors({
+        general: error.response?.data?.error || 'Registration failed. Please try again.',
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 

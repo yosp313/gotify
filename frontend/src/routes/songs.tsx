@@ -1,14 +1,22 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { authApi } from "../services/api";
 
-export const Route = createFileRoute('/songs')({
-  component: RouteComponent,
-})
+export const Route = createFileRoute("/songs")({
+  component: SongsLayout,
+  beforeLoad: async ({ navigate }) => {
+    if (!authApi.isAuthenticated()) {
+      navigate({ to: "/auth", replace: true });
+      return;
+    }
+    try {
+      await authApi.getCurrentUser();
+    } catch (error) {
+      authApi.logout();
+      navigate({ to: "/auth", replace: true });
+    }
+  },
+});
 
-function RouteComponent() {
-  return (
-    <div>
-      <h1>Songs</h1>
-      <p>This is the songs route.</p>
-    </div>
-  )
+function SongsLayout() {
+  return <Outlet />;
 }

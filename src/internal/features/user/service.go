@@ -34,6 +34,25 @@ func (s *UserService) SignUp(fullName, email, password string) (string, error) {
 	return token, nil
 }
 
+func (s *UserService) SignUpWithUser(fullName, email, password string) (string, User, error) {
+	user, err := NewUser(fullName, email, password)
+	if err != nil {
+		return "", User{}, err
+	}
+
+	_, err = s.repo.Create(user)
+	if err != nil {
+		return "", User{}, err
+	}
+
+	token, err := s.auth.GenerateToken(string(user.Id.String()), user.Email, user.FullName)
+	if err != nil {
+		return "", User{}, err
+	}
+
+	return token, *user, nil
+}
+
 func (s *UserService) Authenticate(email, password string) (string, error) {
 	user, err := s.repo.GetByEmail(email)
 	if err != nil {
@@ -50,6 +69,24 @@ func (s *UserService) Authenticate(email, password string) (string, error) {
 	}
 
 	return token, nil
+}
+
+func (s *UserService) AuthenticateWithUser(email, password string) (string, User, error) {
+	user, err := s.repo.GetByEmail(email)
+	if err != nil {
+		return "", User{}, err
+	}
+
+	if !user.CheckPassword(password) {
+		return "", User{}, errors.New("invalid email or password")
+	}
+
+	token, err := s.auth.GenerateToken(string(user.Id.String()), user.Email, user.FullName)
+	if err != nil {
+		return "", User{}, err
+	}
+
+	return token, user, nil
 }
 
 func (s *UserService) GetUserById(id string) (User, error) {

@@ -1,6 +1,9 @@
 package user
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/yosp313/gotify/src/internal/utils"
 )
@@ -42,13 +45,20 @@ func (handler *UserHandler) HandleSignUp(c *gin.Context) {
 		return
 	}
 
-	token, err := handler.service.SignUp(request.FullName, request.Email, request.Password)
+	token, user, err := handler.service.SignUpWithUser(request.FullName, request.Email, request.Password)
 	if err != nil {
 		utils.HandleErrorWithMessage(c, err, "Failed to create user", 500)
 		return
 	}
 
-	c.JSON(201, gin.H{"token": token})
+	c.JSON(201, gin.H{
+		"token": token,
+		"user": UserResponse{
+			Id:       user.Id.String(),
+			FullName: user.FullName,
+			Email:    user.Email,
+		},
+	})
 }
 
 func (handler *UserHandler) HandleLogin(c *gin.Context) {
@@ -63,13 +73,21 @@ func (handler *UserHandler) HandleLogin(c *gin.Context) {
 		return
 	}
 
-	token, err := handler.service.Authenticate(request.Email, request.Password)
+	token, user, err := handler.service.AuthenticateWithUser(request.Email, request.Password)
 	if err != nil {
 		utils.HandleErrorWithMessage(c, err, "Failed to login", 401)
 		return
 	}
 
-	c.JSON(200, gin.H{"token": token})
+	c.SetCookie("token", token, int(time.Hour*24), "/", "", true, true) // Set cookie with 1 hour expiration
+	c.JSON(200, gin.H{
+		"token": token,
+		"user": UserResponse{
+			Id:       user.Id.String(),
+			FullName: user.FullName,
+			Email:    user.Email,
+		},
+	})
 }
 
 func (handler *UserHandler) HandleGetUserById(c *gin.Context) {
@@ -123,4 +141,53 @@ func (handler *UserHandler) HandleGetAllUsers(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"users": usersResponse})
+}
+
+func (handler *UserHandler) HandleGetCurrentUser(c *gin.Context) {
+	// get user ID from the context (set by the auth middleware)
+	email, exists := c.Get("user_email")
+	if !exists {
+		utils.HandleErrorWithMessage(c, nil, "User not authenticated", 401)
+		return
+	}
+	fmt.Println("Email from context:", email)
+	user, err := handler.service.GetUserByEmail(email.(string))
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to get current user", 404)
+		return
+	}
+
+	c.JSON(200, UserResponse{
+		Id:       user.Id.String(),
+		FullName: user.FullName,
+		Email:    user.Email,
+	})
+}
+
+func (handler *UserHandler) HandleCreateUser(c *gin.Context) {
+	var request SignUpRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		utils.HandleErrorWithMessage(c, err, "Invalid request body", 400)
+		return
+	}
+
+	if request.FullName == "" || request.Email == "" || request.Password == "" {
+		utils.HandleErrorWithMessage(c, nil, "Full name, email, and password are required", 400)
+		return
+	}
+
+	token, user, err := handler.service.SignUpWithUser(request.FullName, request.Email, request.Password)
+	if err != nil {
+		utils.HandleErrorWithMessage(c, err, "Failed to create user", 500)
+		return
+	}
+
+	c.JSON(201, gin.H{
+		"token": token,
+		"user": UserResponse{
+			Id:       user.Id.String(),
+			FullName: user.FullName,
+			Email:    user.Email,
+		},
+	})
 }

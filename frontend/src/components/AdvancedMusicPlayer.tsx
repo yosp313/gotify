@@ -3,8 +3,6 @@ import {
   Heart,
   Maximize2,
   MoreHorizontal,
-  Pause,
-  Play,
   Repeat,
   Shuffle,
   SkipBack,
@@ -217,26 +215,18 @@ function AudioVisualizer(
 }
 
 interface AdvancedMusicPlayerProps {
-  song: Song | null;
-  isPlaying: boolean;
-  onPlay: () => void;
-  onPause: () => void;
-  onClose: () => void;
-  onNext?: () => void;
-  onPrevious?: () => void;
-  isMinimized?: boolean;
+  song: Song;
+  onNext: () => void;
+  onPrev: () => void;
+  onClose?: () => void;
   onToggleMinimize?: () => void;
 }
 
 export function AdvancedMusicPlayer({
   song,
-  isPlaying,
-  onPlay,
-  onPause,
-  onClose,
   onNext,
-  onPrevious,
-  isMinimized = false,
+  onPrev,
+  onClose,
   onToggleMinimize,
 }: AdvancedMusicPlayerProps) {
   const [currentTime, setCurrentTime] = useState(0);
@@ -247,106 +237,51 @@ export function AdvancedMusicPlayer({
   const [isShuffle, setIsShuffle] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [authenticatedStreamUrl, setAuthenticatedStreamUrl] = useState<
-    string | null
-  >(null);
-  const [streamError, setStreamError] = useState<string | null>(null);
+
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
 
-  // Load authenticated stream URL when song changes
-  useEffect(() => {
-    if (!song) {
-      setAuthenticatedStreamUrl(null);
-      setStreamError(null);
-      return;
-    }
+  const audioUrl = songApi.getStreamUrl(song.id);
 
-    const loadStream = async () => {
-      try {
-        setStreamError(null);
-        // Use authenticated stream URL with proper authorization headers
-        const streamUrl = await songApi.getAuthenticatedStreamUrl(song.id);
-        setAuthenticatedStreamUrl(streamUrl);
-      } catch (error) {
-        console.error("Failed to load authenticated stream:", error);
-        setStreamError("Failed to load audio stream");
-        setAuthenticatedStreamUrl(null);
+  useEffect(() => {
+    const setupAudioStream = async () => {
+      if (audioRef.current) {
+        audioRef.current.src = audioUrl;
+        if (audioRef.current.paused) {
+          audioRef.current.play().catch(console.error);
+        }
       }
     };
+    setupAudioStream();
+  }, [audioUrl, audioRef]);
 
-    loadStream();
-  }, [song]);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !authenticatedStreamUrl) return;
-
-    const updateTime = () => {
-      if (!isDragging) {
-        setCurrentTime(audio.currentTime);
-      }
-    };
-    const updateDuration = () => setDuration(audio.duration);
-
-    const handleError = (error: Event) => {
-      console.error("Audio playback error:", error);
-      setStreamError("Audio playback failed");
-      onPause(); // Stop playback on error
-    };
-
-    const handleEnded = () => {
-      if (isRepeat) {
-        audio.currentTime = 0;
-        audio.play();
-      } else if (onNext) {
-        onNext();
-      }
-    };
-
-    audio.addEventListener("timeupdate", updateTime);
-    audio.addEventListener("loadedmetadata", updateDuration);
-    audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("error", handleError);
-
-    return () => {
-      audio.removeEventListener("timeupdate", updateTime);
-      audio.removeEventListener("loadedmetadata", updateDuration);
-      audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("error", handleError);
-    };
-  }, [authenticatedStreamUrl, onNext, isRepeat, isDragging, onPause]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume;
-    }
-  }, [volume, isMuted]);
-
-  useEffect(() => {
+  const togglePlayPause = () => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (isPlaying) {
-      console.log("Attempting to play audio:", authenticatedStreamUrl);
-      audio.play().catch((error) => {
-        console.error("Error playing audio:", error);
-        console.log("Audio element state:", {
-          paused: audio.paused,
-          src: audio.src,
-          readyState: audio.readyState,
-          networkState: audio.networkState,
-        });
-      });
+    if (audio.paused) {
+      audio.play().catch(console.error);
     } else {
       audio.pause();
     }
-  }, [isPlaying, authenticatedStreamUrl]);
+  };
 
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  const handleTimeUpdate = () => {
+    const audio = audioRef.current;
+    if (audio) {
+      setCurrentTime(audio.currentTime);
+      setDuration(audio.duration);
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value) / 100;
+    setVolume(newVolume);
+    setIsMuted(false);
+  };
+
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
   };
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -376,141 +311,40 @@ export function AdvancedMusicPlayer({
     setIsDragging(false);
   };
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value) / 100;
-    setVolume(newVolume);
-    setIsMuted(false);
-  };
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
 
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-  };
+    audio.volume = isMuted ? 0 : volume;
+  }, [volume, isMuted]);
 
-  const togglePlay = () => {
-    // Validate song before playing
-    if (!song || !songApi.isValidSong(song)) {
-      console.error("Cannot play invalid song:", song);
-      return;
-    }
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
 
-    if (isPlaying) {
-      onPause();
-    } else {
-      onPlay();
-    }
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+
+    return () => {
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+    };
+  }, [audioRef]);
+
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
   if (!song) return null;
 
-  // Show error state if streaming fails
-  if (streamError) {
-    return (
-      <div className="fixed bottom-6 right-6 bg-red-50 border border-red-200 rounded-2xl shadow-2xl p-4 min-w-80 z-50">
-        <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-            <X className="h-6 w-6 text-red-600" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-red-900">Playback Error</h3>
-            <p className="text-red-700 text-sm">{streamError}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-red-400 hover:text-red-600 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (isMinimized) {
-    return (
-      <div className="fixed bottom-6 right-6 bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-4 min-w-80 animate-scale-in z-50">
-        {authenticatedStreamUrl && (
-          <audio
-            ref={audioRef}
-            src={authenticatedStreamUrl || undefined}
-            preload="metadata"
-            crossOrigin="anonymous"
-          />
-        )}
-
-        <div className="flex items-center space-x-4">
-          <div className="relative group">
-            <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <div className="text-white text-xl font-bold">
-                {song.title.charAt(0).toUpperCase()}
-              </div>
-            </div>
-            {isPlaying && (
-              <div className="absolute -inset-1 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl blur opacity-25 animate-pulse">
-              </div>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 truncate">
-              {song.title}
-            </h3>
-            <p className="text-gray-600 text-sm truncate">
-              {songApi.getArtistName(song)}
-            </p>
-
-            {/* Mini Progress Bar */}
-            <div className="mt-2 w-full bg-gray-200 rounded-full h-1">
-              <div
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 h-1 rounded-full transition-all duration-300"
-                style={{
-                  width: `${duration ? (currentTime / duration) * 100 : 0}%`,
-                }}
-              >
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={togglePlay}
-              className="p-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105"
-            >
-              {isPlaying
-                ? <Pause className="h-4 w-4" />
-                : <Play className="h-4 w-4 ml-0.5" />}
-            </button>
-
-            {onToggleMinimize && (
-              <button
-                onClick={onToggleMinimize}
-                className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all"
-              >
-                <Maximize2 className="h-4 w-4" />
-              </button>
-            )}
-
-            <button
-              onClick={onClose}
-              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-slate-900/95 to-indigo-900/95 backdrop-blur-xl border-t border-white/10 shadow-2xl z-50 animate-slide-up">
-      {authenticatedStreamUrl && (
-        <audio
-          ref={audioRef}
-          src={authenticatedStreamUrl || undefined}
-          preload="metadata"
-          crossOrigin="anonymous"
-        />
-      )}
+      <audio
+        ref={audioRef}
+        src={audioUrl}
+        preload="metadata"
+        crossOrigin="anonymous"
+      />
 
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between">
@@ -522,10 +356,10 @@ export function AdvancedMusicPlayer({
                   {song.title.charAt(0).toUpperCase()}
                 </div>
               </div>
-              {isPlaying && (
+              {/* {isPlaying && (
                 <div className="absolute -inset-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl blur-lg opacity-40 animate-pulse">
                 </div>
-              )}
+              )} */}
             </div>
 
             <div className="min-w-0 flex-1">
@@ -533,14 +367,14 @@ export function AdvancedMusicPlayer({
                 {song.title}
               </h3>
               <p className="text-indigo-200 text-sm truncate">
-                {songApi.getArtistName(song)}
+                {song.artist.full_name}
               </p>
 
               {/* Audio Visualizer */}
               <div className="mt-3">
                 <AudioVisualizer
                   audioRef={audioRef}
-                  isPlaying={isPlaying}
+                  isPlaying={true}
                   className="w-72 h-16"
                 />
               </div>
@@ -571,20 +405,20 @@ export function AdvancedMusicPlayer({
               </button>
 
               <button
-                onClick={onPrevious}
-                disabled={!onPrevious}
+                onClick={onPrev}
+                disabled={!onPrev}
                 className="p-3 text-white hover:text-indigo-300 hover:bg-white/10 rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <SkipBack className="h-6 w-6" />
               </button>
 
               <button
-                onClick={togglePlay}
+                onClick={togglePlayPause}
                 className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full hover:from-indigo-600 hover:to-purple-700 shadow-2xl shadow-indigo-500/25 transition-all duration-200 transform hover:scale-105"
               >
-                {isPlaying
+                {/* {isPlaying
                   ? <Pause className="h-8 w-8" />
-                  : <Play className="h-8 w-8 ml-1" />}
+                  : <Play className="h-8 w-8 ml-1" />} */}
               </button>
 
               <button

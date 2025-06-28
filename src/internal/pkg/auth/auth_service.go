@@ -83,3 +83,23 @@ func (s *JwtAuthService) ParseToken(c *gin.Context) (*JwtClaims, error) {
 
 	return claims, nil
 }
+
+func (s *JwtAuthService) ParseTokenString(tokenString string) (*JwtClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &JwtClaims{}, func(token *jwt.Token) (any, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		return s.secretKey, nil
+	})
+
+	if err != nil || !token.Valid {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*JwtClaims)
+	if !ok {
+		return nil, jwt.ErrTokenMalformed
+	}
+
+	return claims, nil
+}
